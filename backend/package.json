@@ -1,0 +1,29 @@
+{
+  "name": "geu-daily-reporting-backend",
+  "version": "2.0.0",
+  "private": true,
+  "description": "GEU Daily Reporting Express and MongoDB API",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "start:dev": "node --watch src/server.js",
+    "migrate:photos:s3": "node scripts/migratePhotosToS3.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1156.0",
+    "argon2": "^0.41.1",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "helmet": "^8.0.0",
+    "mongoose": "^9.11.4"
+  },
+  "devDependencies": {
+    "supertest": "^7.0.0"
+  },
+  "overrides": {
+    "qs": "^6.16.1"
+  }
+}

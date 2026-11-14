@@ -1,0 +1,131 @@
+import { useEffect, useRef, useState, type DragEvent, type FormEvent } from 'react';
+import { CalendarDays, Camera, Check, FileText, ImagePlus, MapPin, UserRound, X } from 'lucide-react';
+import { api } from '../../api';
+import { Link } from 'react-router-dom';
+import { useCurrentUser } from '../../state/session';
+import '../admin/Management.css';
+import './DailyReportsPage.css';
+
+type Photo = { attachmentId: string; latitude: number; longitude: number; url: string };
+type Report = { id: string; date: string; employeeId: string; employeeName: string; eventDetail: string; city: string; eventRemarks: string; additionalRemarks: string; photos: Photo[] };
+type Summary = { date: string; employees: { id: string; name: string; employeeId: string; submitted: boolean }[] };
+function today() { const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date()).map(part => [part.type, part.value])); return `${parts.year}-${parts.month}-${parts.day}`; }
+
+function SelectedPhoto({ file, onRemove }: { file: File; onRemove: () => void }) {
+  const [preview, setPreview] = useState('');
+  useEffect(() => {
+    const url = URL.createObjectURL(file);
+    setPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+  return <div className="report-photo-tile">
+    {preview && <img src={preview} alt={`Selected photo ${file.name}`} />}
+    <span title={file.name}>{file.name}</span>
+    <button type="button" aria-label={`Remove ${file.name}`} onClick={onRemove}><X size={15} /></button>
+  </div>;
+}
+
+export default function DailyReportsPage({ mode = 'all' }: { mode?: 'all' | 'submit' | 'mine' }) {
+  const user = useCurrentUser(), employee = user.role === 'EMPLOYEE';
+  const showForm = employee && mode === 'submit';
+  const showList = !employee || mode === 'mine';
+  const [reports, setReports] = useState<Report[]>([]), [summary, setSummary] = useState<Summary | null>(null);
+  const [date, setDate] = useState(''), [employeeId, setEmployeeId] = useState('');
+  const [eventDetail, setEventDetail] = useState(''), [city, setCity] = useState('');
+  const [eventRemarks, setEventRemarks] = useState(''), [additionalRemarks, setAdditionalRemarks] = useState('');
+  const [files, setFiles] = useState<File[]>([]), [busy, setBusy] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const [photoDragging, setPhotoDragging] = useState(false);
+  const [error, setError] = useState(''), [notice, setNotice] = useState(''), [openId, setOpenId] = useState('');
+  const query = new URLSearchParams(); if (date) query.set('date', date); if (employeeId && !employee) query.set('employeeId', employeeId);
+  const suffix = query.toString() ? `?${query}` : '';
+  async function load() {
+    if (!showList) return;
+    const [items, overview] = await Promise.all([api<Report[]>(`/daily-reports${suffix}`), employee ? Promise.resolve(null) : api<Summary>('/daily-reports/summary')]);
+    setReports(items); setSummary(overview);
+  }
+  useEffect(() => { void load().catch(cause => setError(cause.message)); }, [date, employeeId, employee, showList]);
+  function addPhotos(incoming: File[]) {
+    const merged = [...files];
+    for (const file of incoming) {
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || !file.size || file.size > 5 * 1024 * 1024) { setError(`${file.name} must be a JPG, PNG or WebP under 5 MB.`); return; }
+      if (!merged.some(item => item.name === file.name && item.size === file.size && item.lastModified === file.lastModified)) merged.push(file);
+    }
+    if (merged.length > 8) { setError('Add at most 8 event pictures.'); return; }
+    setError(''); setFiles(merged);
+  }
+  function dropFiles(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setPhotoDragging(false); addPhotos(Array.from(event.dataTransfer.files));
+  }
+  async function submit(event: FormEvent) {
+    event.preventDefault(); setBusy(true); setError(''); setNotice('');
+    try {
+      if (!files.length || files.length > 8) throw new Error('Select 1 to 8 photos.');
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => navigator.geolocation
+        ? navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 15000 })
+        : reject(new Error('Location is unavailable on this device.')));
+      const photos = [];
+      for (const file of files) {
+        if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024) throw new Error('Use JPG, PNG or WebP photos up to 5 MB each.');
+        const { attachmentId } = await api<{ attachmentId: string }>('/uploads/report-photo', { method: 'POST', body: file });
+        photos.push({ attachmentId, latitude: position.coords.latitude, longitude: position.coords.longitude });
+      }
+      await api('/daily-reports', { method: 'POST', body: JSON.stringify({ eventDetail, city, eventRemarks, additionalRemarks, photos }) });
+      setEventDetail(''); setCity(''); setEventRemarks(''); setAdditionalRemarks(''); setFiles([]);
+      if (photoInputRef.current) photoInputRef.current.value = '';
+      setNotice('Report submitted to your sub-admin.'); await load();
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Submission failed. Allow location access and try again.'); }
+    finally { setBusy(false); }
+  }
+  async function download() {
+    try {
+      const response = await fetch(`/api/v1/daily-reports/export.csv${suffix}`, { credentials: 'include' });
+      if (!response.ok) throw new Error('Could not export reports.');
+      const url = URL.createObjectURL(await response.blob()), link = document.createElement('a');
+      link.href = url; link.download = 'geu-daily-reports.csv'; link.click(); URL.revokeObjectURL(url);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Export failed.'); }
+  }
+  return <div className="dash report-page"><div className="page-head"><div><h2>{mode === 'mine' ? 'My Reports' : showForm ? 'New event report' : 'Daily Reports'}</h2><p>{showForm ? 'Capture the event details and send your report to your sub-admin.' : employee ? 'Review the reports you have submitted.' : 'Review reports and submission status.'}</p></div>{showList && <button className="btn btn-primary" onClick={() => void download()}>Download CSV</button>}</div>
+    {error && <p role="alert" className="manage-error">{error}</p>}{notice && <p role="status" className="manage-state">{notice} <Link to="/app/my-reports">View My Reports</Link></p>}
+    {showForm && <section className="panel glass report-editor">
+      <div className="report-editor__intro"><div className="report-editor__mark"><FileText size={25} /></div><div><span className="report-editor__eyebrow">Daily activity</span><h3>Tell us about today's event</h3><p>Describe the event, add its city and pictures, and include any remarks for your sub-admin.</p></div></div>
+      <form className="report-form" onSubmit={submit}>
+        <div className="report-section">
+          <div className="report-section__heading"><span className="report-section__number">01</span><div><h4>Event overview</h4><p>When, who, and where</p></div></div>
+          <div className="report-meta-grid">
+            <div className="report-meta"><CalendarDays size={18} /><div><span>Date</span><strong>{today()}</strong></div><Check size={16} className="report-meta__check" /></div>
+            <div className="report-meta"><UserRound size={18} /><div><span>Submitted by</span><strong>{user.name}</strong></div><Check size={16} className="report-meta__check" /></div>
+          </div>
+          <div className="report-overview-grid">
+            <label className="report-field report-field--wide"><span>Event detail <em>Required</em></span><textarea className="input report-textarea" required maxLength={3000} placeholder="What happened at the event? Add the key activities and outcomes…" value={eventDetail} onChange={e => setEventDetail(e.target.value)} /></label>
+            <label className="report-field"><span>City <em>Required</em></span><input className="input" required maxLength={120} placeholder="e.g. Dehradun" value={city} onChange={e => setCity(e.target.value)} /></label>
+          </div>
+        </div>
+
+        <div className="report-section">
+          <div className="report-section__heading"><span className="report-section__number">02</span><div><h4>Remarks</h4><p>Capture context for your sub-admin</p></div></div>
+          <div className="report-remarks-grid">
+            <label className="report-field"><span>Event remarks</span><textarea className="input report-textarea" maxLength={3000} placeholder="Anything notable about the event…" value={eventRemarks} onChange={e => setEventRemarks(e.target.value)} /></label>
+            <label className="report-field"><span>Additional remarks</span><textarea className="input report-textarea" maxLength={3000} placeholder="Follow-ups, requests, or extra notes…" value={additionalRemarks} onChange={e => setAdditionalRemarks(e.target.value)} /></label>
+          </div>
+        </div>
+
+        <div className="report-section">
+          <div className="report-section__heading"><span className="report-section__number">03</span><div><h4>Geotagged event pictures</h4><p>Add 1–8 pictures. Your current device location is attached when you submit.</p></div></div>
+          <div className={`report-photo-dropzone ${photoDragging ? 'is-dragging' : ''}`} onDragOver={e => { e.preventDefault(); setPhotoDragging(true); }} onDragLeave={() => setPhotoDragging(false)} onDrop={dropFiles}>
+            <div className="report-photo-dropzone__icon"><ImagePlus size={23} /></div><div><strong>Drop your pictures here</strong><span>JPG, PNG, or WebP · 5 MB each</span></div><button type="button" className="btn btn-ghost" onClick={() => photoInputRef.current?.click()}><Camera size={16} /> Add pictures</button>
+            <input ref={photoInputRef} className="sr-only" tabIndex={-1} type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={e => { addPhotos(Array.from(e.target.files || [])); e.target.value = ''; }} />
+          </div>
+          {files.length > 0 && <div className="report-photo-preview">{files.map((file, index) => <SelectedPhoto key={`${file.name}-${file.lastModified}-${index}`} file={file} onRemove={() => setFiles(current => current.filter((_, item) => item !== index))} />)}</div>}
+          <p className="report-location-note"><MapPin size={15} /> Location permission will be requested when you submit.</p>
+        </div>
+
+        <div className="report-editor__footer"><div><strong>Ready to send?</strong><span>{files.length} {files.length === 1 ? 'picture' : 'pictures'} selected</span></div><button className="btn btn-primary" disabled={busy}>{busy ? 'Submitting…' : 'Submit daily report'}</button></div>
+      </form>
+    </section>}
+    {summary && <section className="panel glass manage-panel"><h3>Today's submissions · {summary.date}</h3><div className="manage-pills"><span className="manage-pill">Submitted: {summary.employees.filter(person => person.submitted).length}</span><span className="manage-pill">Pending: {summary.employees.filter(person => !person.submitted).length}</span></div><div className="report-people">{summary.employees.map(person => <span key={person.id} className={person.submitted ? 'report-person done' : 'report-person'}>{person.name} · {person.submitted ? 'Submitted' : 'Pending'}</span>)}</div>{!summary.employees.length && <p className="manage-note">No assigned employees yet.</p>}</section>}
+    {showList && <section className="panel glass manage-panel"><div className="report-list-head"><h3>{employee ? 'My reports' : 'Submitted reports'}</h3><div className="report-filters"><label>Date<input className="input" type="date" value={date} onChange={e => setDate(e.target.value)} /></label>{!employee && <label>Employee<select className="select" value={employeeId} onChange={e => setEmployeeId(e.target.value)}><option value="">All employees</option>{summary?.employees.map(person => <option key={person.id} value={person.id}>{person.name} · {person.employeeId}</option>)}</select></label>}</div></div>
+      {!reports.length && <p className="manage-note">No reports found.</p>}<div className="report-cards">{reports.map(report => <article key={report.id} className="report-card"><button type="button" className="report-card-head" onClick={() => setOpenId(openId === report.id ? '' : report.id)} aria-expanded={openId === report.id}><strong>{report.employeeName}</strong><span>{report.date} · {report.city}</span><span>{openId === report.id ? 'Hide' : 'View'} details</span></button>{openId === report.id && <div className="report-detail"><p><strong>Event Detail:</strong> {report.eventDetail}</p><p><strong>Event Remarks:</strong> {report.eventRemarks || '—'}</p><p><strong>Additional Remarks:</strong> {report.additionalRemarks || '—'}</p><div className="report-photos">{report.photos.map(photo => <div key={photo.attachmentId}><a href={photo.url} target="_blank" rel="noreferrer"><img src={photo.url} alt={`Event in ${report.city}`} loading="lazy" /></a><a target="_blank" rel="noreferrer" href={`https://www.openstreetmap.org/?mlat=${photo.latitude}&mlon=${photo.longitude}#map=16/${photo.latitude}/${photo.longitude}`}>View map location</a><small>{photo.latitude.toFixed(5)}, {photo.longitude.toFixed(5)}</small></div>)}</div></div>}</article>)}</div>
+    </section>}</div>;
+}

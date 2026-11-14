@@ -1,0 +1,40 @@
+.database-page { max-width: 1500px; }
+.database-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.database-stats > div { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 8px 12px; padding: 18px; border: 1px solid var(--line); border-radius: 16px; background: #fff; box-shadow: var(--shadow-sm); color: var(--navy-700); }
+.database-stats span { font-size: 12px; font-weight: 700; color: var(--ink-500); }
+.database-stats strong { grid-column: 1 / -1; font-size: 27px; color: var(--navy-900); }
+.database-panel { background: #fff; }
+.database-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+.database-toolbar h3 { margin: 0 0 4px; color: var(--navy-900); }
+.database-toolbar p { font-size: 12px; color: var(--ink-500); }
+.database-search { display: flex; align-items: center; gap: 8px; width: min(100%, 300px); min-height: 42px; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: 11px; color: var(--ink-500); background: #fafaff; }
+.database-search:focus-within { border-color: var(--navy-900); box-shadow: 0 0 0 3px var(--gold-100); }
+.database-search input { width: 100%; border: 0; outline: 0; background: transparent; font: inherit; font-size: 12px; color: var(--ink-900); }
+.database-tabs { display: flex; gap: 6px; margin-bottom: 14px; padding-bottom: 12px; overflow-x: auto; border-bottom: 1px solid var(--line); }
+.database-tabs button { display: flex; align-items: center; gap: 7px; padding: 9px 12px; border: 0; border-radius: 9px; background: transparent; color: var(--ink-500); font: inherit; font-size: 12px; font-weight: 700; white-space: nowrap; cursor: pointer; }
+.database-tabs button:hover, .database-tabs button.is-active { background: var(--navy-50); color: var(--navy-900); }
+.database-tabs button.is-active { box-shadow: inset 0 -2px var(--gold-500); }
+.database-tabs span { padding: 2px 6px; border-radius: 7px; background: #e9e9f5; font-size: 10px; }
+.database-table { min-width: 890px; }
+.database-table td strong, .database-table td small { display: block; }
+.database-table td strong { color: var(--navy-900); }
+.database-table td small { margin-top: 3px; color: var(--ink-500); }
+.database-status { display: inline-block; padding: 5px 8px; border-radius: 7px; background: #e8f6ed; color: #24663b; font-size: 11px; font-weight: 800; }
+.database-status.is-disabled { background: #f2f2f6; color: #66677c; }
+.database-actions { display: flex; gap: 5px; }
+.database-actions button, .database-modal__head button { display: grid; place-items: center; width: 32px; height: 32px; border: 1px solid var(--line); border-radius: 8px; background: #f8f8fd; color: var(--navy-700); cursor: pointer; }
+.database-actions button:hover, .database-modal__head button:hover { background: var(--gold-100); }
+.database-actions button.is-danger:hover { background: #fff0ee; color: #a1261e; }
+.database-actions button:disabled { opacity: .5; cursor: not-allowed; }
+.database-empty { padding: 16px 0 2px; }
+.database-modal-backdrop { position: fixed; z-index: 100; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(0,0,45,.57); }
+.database-modal { width: min(100%, 490px); max-height: min(90vh, 760px); overflow-y: auto; padding: 26px; border-radius: 20px; background: #fff; box-shadow: 0 24px 70px rgba(0,0,45,.28); }
+.database-modal__head { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; margin-bottom: 22px; }
+.database-modal__head span { color: var(--navy-500); font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.database-modal__head h3 { margin: 5px 0 0; color: var(--navy-900); font-size: 22px; }
+.database-form { display: grid; gap: 16px; }
+.database-form > p { color: var(--ink-700); font-size: 13px; line-height: 1.55; }
+.database-form label { display: grid; gap: 7px; color: var(--ink-700); font-size: 12px; font-weight: 700; }
+.database-modal__actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 8px; }
+@media (max-width: 850px) { .database-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 600px) { .database-toolbar { align-items: stretch; flex-direction: column; } .database-search { width: 100%; } .database-modal { padding: 20px; } }

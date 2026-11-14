@@ -1,0 +1,16 @@
+{
+  "Rules": [
+    {
+      "ID": "DeleteUnsubmittedPhotosAfterEightDays",
+      "Status": "Enabled",
+      "Filter": { "And": { "Prefix": "attachments/", "Tags": [{ "Key": "state", "Value": "pending" }] } },
+      "Expiration": { "Days": 8 }
+    },
+    {
+      "ID": "DeleteOldObjectVersionsAfterThirtyDays",
+      "Status": "Enabled",
+      "Filter": { "Prefix": "attachments/" },
+      "NoncurrentVersionExpiration": { "NoncurrentDays": 30 }
+    }
+  ]
+}
