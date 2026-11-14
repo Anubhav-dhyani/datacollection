@@ -64,19 +64,37 @@ security:
 
 Then run `sudo systemctl restart mongod`. Confirm `net.bindIp: 127.0.0.1` remains set. The application URI will be `mongodb://mktreport:PASSWORD@127.0.0.1:27017/geu_complaint_portal?authSource=geu_complaint_portal`; URL-encode special characters in `PASSWORD`.
 
-## 4. Copy and configure the app
+## 4. Clone and configure the app
 
-On EC2:
+On EC2, install Git and prepare an empty destination:
 
 ```bash
+sudo apt install -y git
 sudo mkdir -p /opt/mktreport /var/www/mktreport
 sudo chown ubuntu:ubuntu /opt/mktreport
 ```
 
-From your Mac, inside this repository, copy the current workspace. This works even before the changes are committed to Git:
+On your Mac, commit and push any local changes before deploying:
 
 ```bash
-rsync -av --exclude node_modules --exclude .git --exclude .env --exclude dist ./ ubuntu@ELASTIC_IP:/opt/mktreport/
+cd /Users/anubhavdhyani/Downloads/automatic/datacollection
+git status
+git add .
+git commit -m "Prepare reporting portal for deployment" # only if there are changes
+git push origin main
+```
+
+On EC2, clone the repository into the empty destination:
+
+```bash
+git clone https://github.com/Anubhav-dhyani/datacollection.git /opt/mktreport
+```
+
+If the GitHub repository is private, configure a read-only SSH deploy key for EC2 and clone with `git@github.com:Anubhav-dhyani/datacollection.git` instead. Do not put a GitHub token in the clone URL or commit secrets. On later deployments, fetch the new code before reinstalling dependencies and rebuilding:
+
+```bash
+cd /opt/mktreport
+git pull --ff-only origin main
 ```
 
 On EC2, create `/opt/mktreport/backend/.env` with these values, using your own MongoDB password, bucket name, and first admin password:

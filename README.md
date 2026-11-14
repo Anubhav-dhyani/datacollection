@@ -9,16 +9,15 @@ React/Vite frontend in `frontend/`; Express/MongoDB backend in `backend/`. The p
 3. Run `npm start` in `backend/`.
 4. In `frontend/`, run `npm ci` and `npm run dev`. Open `http://localhost:5173` and sign in with the seeded admin credentials. The initial password must be changed at first sign-in.
 
-The frontend proxies `/api` to the backend. For production, serve both from one origin or configure `FRONTEND_ORIGIN` and secure cookies over HTTPS. Browser geolocation also requires HTTPS or localhost.
+The frontend proxies `/api` to the backend. For production, serve both from one origin or configure `FRONTEND_ORIGIN` and secure cookies over HTTPS.
 
 ## Reporting workflow
 
 - The main admin creates multiple sub-admins and employees in **Report Team**, assigning each employee to one active sub-admin.
 - The main admin can open **Database** to search all account records, including the super-admin, and edit account details, reassign employees, change passwords, disable accounts, or delete sub-admin and employee accounts. A sub-admin must have all employees reassigned or deleted before their account can be deleted. Submitted reports remain in report history after an employee account is deleted.
 - A sub-admin sees their assigned employees and can create additional employees assigned to themselves.
-- An employee signs in with email and password and submits a daily event report. The server sets **Date** in the Asia/Kolkata time zone and **Name** from the signed-in account. The remaining fields are **Event Detail**, **City**, **Event Remarks**, **Additional Remarks**, and 1–8 **Geotagged Event Pictures**.
-- At submission, the browser attaches its current device location to each selected picture. These coordinates describe the device location at submission; they are not GPS metadata inside the image.
-- The main admin sees every report. A sub-admin sees reports sent to them; an employee uses the separate **My Reports** page to review their own submissions. Photos follow the same access rules. Date and employee filters, photo previews with map links, CSV export, and today's submitted/pending employee indicator are included.
+- An employee signs in with email and password and submits a daily event report. The server sets **Date** in the Asia/Kolkata time zone and **Name** from the signed-in account. The remaining fields are **Event Detail**, **City**, **Event Remarks**, **Additional Remarks**, and 1–8 **Event Pictures**. No browser location permission is needed.
+- The main admin sees every report. A sub-admin sees reports sent to them; an employee uses the separate **My Reports** page to review their own submissions. Photos follow the same access rules. Date and employee filters, photo previews, CSV export, and today's submitted/pending employee indicator are included.
 
 Report and account data, sessions, audit logs, and photo metadata are stored in MongoDB. New photo bytes are stored only in a private S3 bucket; the API will not start without `S3_BUCKET` and `AWS_REGION`. Previously stored MongoDB photos remain readable until migrated with `cd backend && npm run migrate:photos:s3 -- --apply` (omit `--apply` for a dry run). Images are limited to 5 MB each. Back up MongoDB and S3.
 

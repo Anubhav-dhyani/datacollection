@@ -35,7 +35,7 @@ const attachmentSchema = new Schema({
 }, options('attachments'));
 attachmentSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
-const photoSchema = new Schema({ attachmentId: { type: String, required: true }, latitude: { type: Number, required: true }, longitude: { type: Number, required: true } }, { _id: false });
+const photoSchema = new Schema({ attachmentId: { type: String, required: true } }, { _id: false });
 const dailyReportSchema = new Schema({
   id: { type: String, required: true, unique: true }, date: { type: String, required: true, index: true },
   employeeId: { type: String, required: true, index: true }, employeeName: { type: String, required: true },

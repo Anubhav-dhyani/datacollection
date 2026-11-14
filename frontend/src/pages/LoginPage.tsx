@@ -1,6 +1,6 @@
 import { useState, type CSSProperties, type FormEvent } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
-import { ArrowRight, CalendarDays, Eye, EyeOff, ImageIcon, Loader2, Lock, MapPin, TriangleAlert, User } from 'lucide-react';
+import { ArrowRight, CalendarDays, Eye, EyeOff, ImageIcon, Loader2, Lock, TriangleAlert, User } from 'lucide-react';
 import logo from '../assets/geu-logo.png';
 import { roleHome, useSession } from '../state/session';
 import './LoginPage.css';
@@ -34,9 +34,9 @@ export default function LoginPage() {
       <div className="login-brand__intro rise-in" style={{ '--i': 1 } as CSSProperties}>
         <span className="login-brand__eyebrow"><span className="live-dot" aria-hidden="true" /> Daily Event Reporting Portal</span>
         <h1 className="login-brand__title">Record it. Submit it. <span>Track it.</span></h1>
-        <p className="login-brand__lead">Submit daily event activity with location-tagged pictures and keep your team informed.</p>
+        <p className="login-brand__lead">Submit daily event activity with pictures and keep your team informed.</p>
       </div>
-      <div className="login-brand__scene rise-in" style={{ '--i': 2 } as CSSProperties}><div className="login-preview" aria-hidden="true"><div className="login-preview__top"><span><CalendarDays size={18} /> Daily report</span><span className="login-preview__dot" /></div><div className="login-preview__line login-preview__line--long" /><div className="login-preview__line" /><div className="login-preview__photo"><ImageIcon size={42} /></div><div className="login-preview__foot"><span><MapPin size={16} /> Location attached</span><span>Submitted</span></div></div></div>
+      <div className="login-brand__scene rise-in" style={{ '--i': 2 } as CSSProperties}><div className="login-preview" aria-hidden="true"><div className="login-preview__top"><span><CalendarDays size={18} /> Daily report</span><span className="login-preview__dot" /></div><div className="login-preview__line login-preview__line--long" /><div className="login-preview__line" /><div className="login-preview__photo"><ImageIcon size={42} /></div><div className="login-preview__foot"><span><ImageIcon size={16} /> Event pictures</span><span>Submitted</span></div></div></div>
     </section>
     <main className="login-main">
       <div className="login-card rise-in" style={{ '--i': 2 } as CSSProperties}>

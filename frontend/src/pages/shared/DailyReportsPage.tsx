@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState, type DragEvent, type FormEvent } from 'react';
-import { CalendarDays, Camera, Check, FileText, ImagePlus, MapPin, UserRound, X } from 'lucide-react';
+import { CalendarDays, Camera, Check, FileText, ImagePlus, UserRound, X } from 'lucide-react';
 import { api } from '../../api';
 import { Link } from 'react-router-dom';
 import { useCurrentUser } from '../../state/session';
 import '../admin/Management.css';
 import './DailyReportsPage.css';
 
-type Photo = { attachmentId: string; latitude: number; longitude: number; url: string };
+type Photo = { attachmentId: string; url: string };
 type Report = { id: string; date: string; employeeId: string; employeeName: string; eventDetail: string; city: string; eventRemarks: string; additionalRemarks: string; photos: Photo[] };
 type Summary = { date: string; employees: { id: string; name: string; employeeId: string; submitted: boolean }[] };
 function today() { const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date()).map(part => [part.type, part.value])); return `${parts.year}-${parts.month}-${parts.day}`; }
@@ -62,20 +62,17 @@ export default function DailyReportsPage({ mode = 'all' }: { mode?: 'all' | 'sub
     event.preventDefault(); setBusy(true); setError(''); setNotice('');
     try {
       if (!files.length || files.length > 8) throw new Error('Select 1 to 8 photos.');
-      const position = await new Promise<GeolocationPosition>((resolve, reject) => navigator.geolocation
-        ? navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 15000 })
-        : reject(new Error('Location is unavailable on this device.')));
       const photos = [];
       for (const file of files) {
         if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024) throw new Error('Use JPG, PNG or WebP photos up to 5 MB each.');
         const { attachmentId } = await api<{ attachmentId: string }>('/uploads/report-photo', { method: 'POST', body: file });
-        photos.push({ attachmentId, latitude: position.coords.latitude, longitude: position.coords.longitude });
+        photos.push({ attachmentId });
       }
       await api('/daily-reports', { method: 'POST', body: JSON.stringify({ eventDetail, city, eventRemarks, additionalRemarks, photos }) });
       setEventDetail(''); setCity(''); setEventRemarks(''); setAdditionalRemarks(''); setFiles([]);
       if (photoInputRef.current) photoInputRef.current.value = '';
       setNotice('Report submitted to your sub-admin.'); await load();
-    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Submission failed. Allow location access and try again.'); }
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Submission failed. Please try again.'); }
     finally { setBusy(false); }
   }
   async function download() {
@@ -112,13 +109,12 @@ export default function DailyReportsPage({ mode = 'all' }: { mode?: 'all' | 'sub
         </div>
 
         <div className="report-section">
-          <div className="report-section__heading"><span className="report-section__number">03</span><div><h4>Geotagged event pictures</h4><p>Add 1–8 pictures. Your current device location is attached when you submit.</p></div></div>
+          <div className="report-section__heading"><span className="report-section__number">03</span><div><h4>Event pictures</h4><p>Add 1–8 pictures to support your report.</p></div></div>
           <div className={`report-photo-dropzone ${photoDragging ? 'is-dragging' : ''}`} onDragOver={e => { e.preventDefault(); setPhotoDragging(true); }} onDragLeave={() => setPhotoDragging(false)} onDrop={dropFiles}>
             <div className="report-photo-dropzone__icon"><ImagePlus size={23} /></div><div><strong>Drop your pictures here</strong><span>JPG, PNG, or WebP · 5 MB each</span></div><button type="button" className="btn btn-ghost" onClick={() => photoInputRef.current?.click()}><Camera size={16} /> Add pictures</button>
             <input ref={photoInputRef} className="sr-only" tabIndex={-1} type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={e => { addPhotos(Array.from(e.target.files || [])); e.target.value = ''; }} />
           </div>
           {files.length > 0 && <div className="report-photo-preview">{files.map((file, index) => <SelectedPhoto key={`${file.name}-${file.lastModified}-${index}`} file={file} onRemove={() => setFiles(current => current.filter((_, item) => item !== index))} />)}</div>}
-          <p className="report-location-note"><MapPin size={15} /> Location permission will be requested when you submit.</p>
         </div>
 
         <div className="report-editor__footer"><div><strong>Ready to send?</strong><span>{files.length} {files.length === 1 ? 'picture' : 'pictures'} selected</span></div><button className="btn btn-primary" disabled={busy}>{busy ? 'Submitting…' : 'Submit daily report'}</button></div>
@@ -126,6 +122,6 @@ export default function DailyReportsPage({ mode = 'all' }: { mode?: 'all' | 'sub
     </section>}
     {summary && <section className="panel glass manage-panel"><h3>Today's submissions · {summary.date}</h3><div className="manage-pills"><span className="manage-pill">Submitted: {summary.employees.filter(person => person.submitted).length}</span><span className="manage-pill">Pending: {summary.employees.filter(person => !person.submitted).length}</span></div><div className="report-people">{summary.employees.map(person => <span key={person.id} className={person.submitted ? 'report-person done' : 'report-person'}>{person.name} · {person.submitted ? 'Submitted' : 'Pending'}</span>)}</div>{!summary.employees.length && <p className="manage-note">No assigned employees yet.</p>}</section>}
     {showList && <section className="panel glass manage-panel"><div className="report-list-head"><h3>{employee ? 'My reports' : 'Submitted reports'}</h3><div className="report-filters"><label>Date<input className="input" type="date" value={date} onChange={e => setDate(e.target.value)} /></label>{!employee && <label>Employee<select className="select" value={employeeId} onChange={e => setEmployeeId(e.target.value)}><option value="">All employees</option>{summary?.employees.map(person => <option key={person.id} value={person.id}>{person.name} · {person.employeeId}</option>)}</select></label>}</div></div>
-      {!reports.length && <p className="manage-note">No reports found.</p>}<div className="report-cards">{reports.map(report => <article key={report.id} className="report-card"><button type="button" className="report-card-head" onClick={() => setOpenId(openId === report.id ? '' : report.id)} aria-expanded={openId === report.id}><strong>{report.employeeName}</strong><span>{report.date} · {report.city}</span><span>{openId === report.id ? 'Hide' : 'View'} details</span></button>{openId === report.id && <div className="report-detail"><p><strong>Event Detail:</strong> {report.eventDetail}</p><p><strong>Event Remarks:</strong> {report.eventRemarks || '—'}</p><p><strong>Additional Remarks:</strong> {report.additionalRemarks || '—'}</p><div className="report-photos">{report.photos.map(photo => <div key={photo.attachmentId}><a href={photo.url} target="_blank" rel="noreferrer"><img src={photo.url} alt={`Event in ${report.city}`} loading="lazy" /></a><a target="_blank" rel="noreferrer" href={`https://www.openstreetmap.org/?mlat=${photo.latitude}&mlon=${photo.longitude}#map=16/${photo.latitude}/${photo.longitude}`}>View map location</a><small>{photo.latitude.toFixed(5)}, {photo.longitude.toFixed(5)}</small></div>)}</div></div>}</article>)}</div>
+      {!reports.length && <p className="manage-note">No reports found.</p>}<div className="report-cards">{reports.map(report => <article key={report.id} className="report-card"><button type="button" className="report-card-head" onClick={() => setOpenId(openId === report.id ? '' : report.id)} aria-expanded={openId === report.id}><strong>{report.employeeName}</strong><span>{report.date} · {report.city}</span><span>{openId === report.id ? 'Hide' : 'View'} details</span></button>{openId === report.id && <div className="report-detail"><p><strong>Event Detail:</strong> {report.eventDetail}</p><p><strong>Event Remarks:</strong> {report.eventRemarks || '—'}</p><p><strong>Additional Remarks:</strong> {report.additionalRemarks || '—'}</p><div className="report-photos">{report.photos.map(photo => <div key={photo.attachmentId}><a href={photo.url} target="_blank" rel="noreferrer"><img src={photo.url} alt={`Event in ${report.city}`} loading="lazy" /></a></div>)}</div></div>}</article>)}</div>
     </section>}</div>;
 }

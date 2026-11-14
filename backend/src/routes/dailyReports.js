@@ -28,7 +28,7 @@ function output(report) {
   delete value.dataFiles;
   delete value.dataSections;
   return { ...value,
-    photos: (value.photos || []).map(photo => ({ ...photo, url: `${config.prefix}/uploads/${photo.attachmentId}` })),
+    photos: (value.photos || []).map(photo => ({ attachmentId: photo.attachmentId, url: `${config.prefix}/uploads/${photo.attachmentId}` })),
   };
 }
 router.get('/summary', wrap(async (req, res) => {
@@ -41,9 +41,9 @@ router.get('/summary', wrap(async (req, res) => {
 router.get('/export.csv', wrap(async (req, res) => {
   const reports = await DailyReport.find(scope(req)).sort({ date: -1, createdAt: -1 }).lean();
   const cell = value => `"${String(value ?? '').replace(/^[=+@-]/, "'$&").replace(/"/g, '""')}"`;
-  const rows = [['Date', 'Name', 'Event Detail', 'City', 'Event Remarks', 'Additional Remarks', 'Geotagged event pictures'],
+  const rows = [['Date', 'Name', 'Event Detail', 'City', 'Event Remarks', 'Additional Remarks', 'Event pictures'],
     ...reports.map(report => [report.date, report.employeeName, report.eventDetail, report.city, report.eventRemarks, report.additionalRemarks,
-      report.photos.map(photo => `${photo.latitude},${photo.longitude} (${config.prefix}/uploads/${photo.attachmentId})`).join('; ')])];
+      report.photos.map(photo => `${config.prefix}/uploads/${photo.attachmentId}`).join('; ')])];
   res.set('Content-Type', 'text/csv; charset=utf-8').set('Content-Disposition', 'attachment; filename="geu-daily-reports.csv"');
   res.send('\ufeff' + rows.map(row => row.map(cell).join(',')).join('\r\n'));
 }));
@@ -60,15 +60,13 @@ router.post('/', wrap(async (req, res) => {
   if (['data', 'dataFileIds', 'dataSections'].some(field => req.body[field] !== undefined)) error(400, 'Data sections are no longer supported.');
   const manager = await User.findOne({ id: req.user.reportSubAdminId, role: 'SUB_ADMIN', status: 'ACTIVE' }).lean();
   if (!manager) error(400, 'Ask the admin to assign an active sub-admin.');
-  if (!Array.isArray(req.body.photos) || req.body.photos.length < 1 || req.body.photos.length > 8) error(400, 'Add 1 to 8 geotagged photos.');
+  if (!Array.isArray(req.body.photos) || req.body.photos.length < 1 || req.body.photos.length > 8) error(400, 'Add 1 to 8 event pictures.');
   const ids = new Set();
   const photos = req.body.photos.map(photo => {
     const attachmentId = text(photo.attachmentId, 'photo ID', 100);
     if (ids.has(attachmentId)) error(400, 'A photo was selected twice.');
     ids.add(attachmentId);
-    const latitude = Number(photo.latitude), longitude = Number(photo.longitude);
-    if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) error(400, 'Each photo needs valid coordinates.');
-    return { attachmentId, latitude, longitude };
+    return { attachmentId };
   });
   const attachments = await Attachment.find({ id: { $in: [...ids] }, ownerId: req.user.id, kind: 'REPORT', reportId: { $exists: false }, expiresAt: { $gt: new Date() } }).select('storageKey').lean();
   if (attachments.length !== photos.length) error(400, 'Upload photos again before submitting.');
