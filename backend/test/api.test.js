@@ -41,6 +41,7 @@ test('email login, reporting roles, photos, filters, and removed ticket routes',
     process.env.SEED_ADMIN_PASSWORD = 'TestingPass123';
     process.env.S3_BUCKET = 'test-report-photos';
     process.env.AWS_REGION = 'ap-south-1';
+    process.env.FRONTEND_ORIGIN = 'https://mktreport.geu.ac.in';
     const objects = new Map();
     const imageStorage = require('../src/services/imageStorage');
     imageStorage.putImage = async (key, _mimeType, buffer) => { objects.set(key, { data: Buffer.from(buffer), state: 'pending' }); };
@@ -116,6 +117,8 @@ test('email login, reporting roles, photos, filters, and removed ticket routes',
     assert.match(csv, /Event Remarks/);
     assert.match(csv, /Event pictures/);
     assert.match(csv, new RegExp(image.body.attachmentId));
+    assert.match(csv, new RegExp(`https://mktreport\\.geu\\.ac\\.in/api/v1/uploads/${image.body.attachmentId}`));
+    assert.doesNotMatch(csv, /file:\/\/|"\/api\/v1\/uploads/);
     assert.doesNotMatch(csv, /30\.3165|78\.0322/);
     assert.doesNotMatch(csv, /Data Files/);
     assert.equal((await employee.post(`${root}/daily-reports`).send({ eventDetail: 'Old field', city: 'Dehradun', data: '42 attendees', photos: [] })).status, 400);

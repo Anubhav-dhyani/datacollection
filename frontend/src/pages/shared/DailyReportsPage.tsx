@@ -30,13 +30,13 @@ export default function DailyReportsPage({ mode = 'all' }: { mode?: 'all' | 'sub
   const showForm = employee && mode === 'submit';
   const showList = !employee || mode === 'mine';
   const [reports, setReports] = useState<Report[]>([]), [summary, setSummary] = useState<Summary | null>(null);
-  const [date, setDate] = useState(''), [employeeId, setEmployeeId] = useState('');
+  const [date, setDate] = useState(today), [employeeId, setEmployeeId] = useState('');
   const [eventDetail, setEventDetail] = useState(''), [city, setCity] = useState('');
   const [eventRemarks, setEventRemarks] = useState(''), [additionalRemarks, setAdditionalRemarks] = useState('');
   const [files, setFiles] = useState<File[]>([]), [busy, setBusy] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [photoDragging, setPhotoDragging] = useState(false);
-  const [error, setError] = useState(''), [notice, setNotice] = useState(''), [openId, setOpenId] = useState('');
+  const [error, setError] = useState(''), [notice, setNotice] = useState('');
   const query = new URLSearchParams(); if (date) query.set('date', date); if (employeeId && !employee) query.set('employeeId', employeeId);
   const suffix = query.toString() ? `?${query}` : '';
   async function load() {
@@ -80,7 +80,7 @@ export default function DailyReportsPage({ mode = 'all' }: { mode?: 'all' | 'sub
       const response = await fetch(`/api/v1/daily-reports/export.csv${suffix}`, { credentials: 'include' });
       if (!response.ok) throw new Error('Could not export reports.');
       const url = URL.createObjectURL(await response.blob()), link = document.createElement('a');
-      link.href = url; link.download = 'geu-daily-reports.csv'; link.click(); URL.revokeObjectURL(url);
+      link.href = url; link.download = `geu-daily-reports${date ? `-${date}` : ''}.csv`; link.click(); URL.revokeObjectURL(url);
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Export failed.'); }
   }
   return <div className="dash report-page"><div className="page-head"><div><h2>{mode === 'mine' ? 'My Reports' : showForm ? 'New event report' : 'Daily Reports'}</h2><p>{showForm ? 'Capture the event details and send your report to your sub-admin.' : employee ? 'Review the reports you have submitted.' : 'Review reports and submission status.'}</p></div>{showList && <button className="btn btn-primary" onClick={() => void download()}>Download CSV</button>}</div>
@@ -121,7 +121,26 @@ export default function DailyReportsPage({ mode = 'all' }: { mode?: 'all' | 'sub
       </form>
     </section>}
     {summary && <section className="panel glass manage-panel"><h3>Today's submissions · {summary.date}</h3><div className="manage-pills"><span className="manage-pill">Submitted: {summary.employees.filter(person => person.submitted).length}</span><span className="manage-pill">Pending: {summary.employees.filter(person => !person.submitted).length}</span></div><div className="report-people">{summary.employees.map(person => <span key={person.id} className={person.submitted ? 'report-person done' : 'report-person'}>{person.name} · {person.submitted ? 'Submitted' : 'Pending'}</span>)}</div>{!summary.employees.length && <p className="manage-note">No assigned employees yet.</p>}</section>}
-    {showList && <section className="panel glass manage-panel"><div className="report-list-head"><h3>{employee ? 'My reports' : 'Submitted reports'}</h3><div className="report-filters"><label>Date<input className="input" type="date" value={date} onChange={e => setDate(e.target.value)} /></label>{!employee && <label>Employee<select className="select" value={employeeId} onChange={e => setEmployeeId(e.target.value)}><option value="">All employees</option>{summary?.employees.map(person => <option key={person.id} value={person.id}>{person.name} · {person.employeeId}</option>)}</select></label>}</div></div>
-      {!reports.length && <p className="manage-note">No reports found.</p>}<div className="report-cards">{reports.map(report => <article key={report.id} className="report-card"><button type="button" className="report-card-head" onClick={() => setOpenId(openId === report.id ? '' : report.id)} aria-expanded={openId === report.id}><strong>{report.employeeName}</strong><span>{report.date} · {report.city}</span><span>{openId === report.id ? 'Hide' : 'View'} details</span></button>{openId === report.id && <div className="report-detail"><p><strong>Event Detail:</strong> {report.eventDetail}</p><p><strong>Event Remarks:</strong> {report.eventRemarks || '—'}</p><p><strong>Additional Remarks:</strong> {report.additionalRemarks || '—'}</p><div className="report-photos">{report.photos.map(photo => <div key={photo.attachmentId}><a href={photo.url} target="_blank" rel="noreferrer"><img src={photo.url} alt={`Event in ${report.city}`} loading="lazy" /></a></div>)}</div></div>}</article>)}</div>
+    {showList && <section className="panel glass manage-panel report-sheet">
+      <div className="report-list-head">
+        <div><span className="report-sheet__eyebrow">Daily report sheet</span><h3>{date ? `Reports for ${date}` : 'All reports'}</h3><p>{reports.length} {reports.length === 1 ? 'report' : 'reports'} in this view</p></div>
+        <div className="report-filters">
+          <label>Date<input className="input" type="date" value={date} onChange={e => setDate(e.target.value)} /></label>
+          <button type="button" className="btn btn-ghost" onClick={() => setDate('')}>All dates</button>
+          {!employee && <label>Employee<select className="select" value={employeeId} onChange={e => setEmployeeId(e.target.value)}><option value="">All employees</option>{summary?.employees.map(person => <option key={person.id} value={person.id}>{person.name} · {person.employeeId}</option>)}</select></label>}
+        </div>
+      </div>
+      {!reports.length ? <p className="manage-note">No reports found for this selection.</p> : <div className="report-sheet__scroll"><table className="report-sheet__table">
+        <thead><tr><th scope="col">Date</th><th scope="col">Name</th><th scope="col">Event Detail</th><th scope="col">City</th><th scope="col">Event Remarks</th><th scope="col">Additional Remarks</th><th scope="col">Event Pictures</th></tr></thead>
+        <tbody>{reports.map(report => <tr key={report.id}>
+          <td className="report-sheet__date">{report.date}</td>
+          <td className="report-sheet__name">{report.employeeName}</td>
+          <td>{report.eventDetail}</td>
+          <td>{report.city}</td>
+          <td>{report.eventRemarks || '—'}</td>
+          <td>{report.additionalRemarks || '—'}</td>
+          <td><div className="report-sheet__photos">{report.photos.map((photo, index) => <a key={photo.attachmentId} href={new URL(photo.url, window.location.origin).href} target="_blank" rel="noreferrer" aria-label={`Open picture ${index + 1} for ${report.employeeName}`} title="Open full picture"><img src={photo.url} alt={`Event picture ${index + 1} for ${report.employeeName}`} loading="lazy" /></a>)}</div></td>
+        </tr>)}</tbody>
+      </table></div>}
     </section>}</div>;
 }

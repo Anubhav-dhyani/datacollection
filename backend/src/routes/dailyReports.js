@@ -41,9 +41,10 @@ router.get('/summary', wrap(async (req, res) => {
 router.get('/export.csv', wrap(async (req, res) => {
   const reports = await DailyReport.find(scope(req)).sort({ date: -1, createdAt: -1 }).lean();
   const cell = value => `"${String(value ?? '').replace(/^[=+@-]/, "'$&").replace(/"/g, '""')}"`;
+  const photoUrl = attachmentId => new URL(`${config.prefix}/uploads/${attachmentId}`, config.frontendOrigins[0]).href;
   const rows = [['Date', 'Name', 'Event Detail', 'City', 'Event Remarks', 'Additional Remarks', 'Event pictures'],
     ...reports.map(report => [report.date, report.employeeName, report.eventDetail, report.city, report.eventRemarks, report.additionalRemarks,
-      report.photos.map(photo => `${config.prefix}/uploads/${photo.attachmentId}`).join('; ')])];
+      report.photos.map(photo => photoUrl(photo.attachmentId)).join('; ')])];
   res.set('Content-Type', 'text/csv; charset=utf-8').set('Content-Disposition', 'attachment; filename="geu-daily-reports.csv"');
   res.send('\ufeff' + rows.map(row => row.map(cell).join(',')).join('\r\n'));
 }));

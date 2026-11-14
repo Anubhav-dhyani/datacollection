@@ -48,19 +48,37 @@
 @media (max-width: 600px) { .report-editor__intro { padding: 23px 20px; } .report-form { padding: 0 20px; } .report-meta-grid, .report-overview-grid, .report-remarks-grid { grid-template-columns: 1fr; } .report-section { padding: 24px 0; } .report-photo-dropzone { flex-wrap: wrap; } .report-photo-dropzone .btn { width: 100%; } .report-editor__footer { align-items: stretch; flex-direction: column; } .report-editor__footer .btn { width: 100%; } }
 .manage-state a { text-decoration: underline; }
 .report-list-head { display: flex; justify-content: space-between; align-items: end; gap: 16px; flex-wrap: wrap; }
-.report-filters, .report-people, .report-actions, .report-photos { display: flex; gap: 12px; flex-wrap: wrap; }
+.report-filters, .report-people, .report-actions { display: flex; gap: 12px; flex-wrap: wrap; }
 .report-filters label { display: grid; gap: 5px; font-size: 13px; }
-.report-people, .report-photos { margin-top: 16px; }
+.report-people { margin-top: 16px; }
 .report-person { padding: 8px 12px; border-radius: 12px; background: #fff1e8; color: #8a461c; font-size: 13px; }
 .report-person.done { background: #e4f5e8; color: #236d38; }
-.report-cards { display: grid; gap: 12px; margin-top: 16px; }
-.report-card { border: 1px solid rgba(32, 52, 72, .12); border-radius: 14px; overflow: hidden; }
-.report-card-head { width: 100%; padding: 16px; border: 0; background: transparent; display: flex; gap: 16px; align-items: center; justify-content: space-between; text-align: left; cursor: pointer; font: inherit; color: inherit; }
-.report-card-head:hover { background: rgba(32, 52, 72, .04); }
-.report-detail { padding: 0 16px 18px; overflow-wrap: anywhere; }
-.report-detail p { margin: 10px 0; }
-.report-photos > div { width: 170px; display: grid; gap: 5px; font-size: 13px; }
-.report-photos img { width: 170px; height: 130px; object-fit: cover; border-radius: 10px; }
+.report-sheet { min-width: 0; }
+.report-sheet .report-list-head { margin-bottom: 20px; }
+.report-sheet .report-list-head h3 { margin: 4px 0 2px; }
+.report-sheet .report-list-head p { color: var(--ink-500); font-size: 13px; }
+.report-sheet__eyebrow { color: var(--navy-700); font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.report-sheet .report-filters { align-items: end; }
+.report-sheet .report-filters .btn { min-height: 42px; }
+.report-sheet__scroll { width: 100%; overflow-x: auto; border: 1px solid #d9d9e9; border-radius: 12px; }
+.report-sheet__table { width: 100%; min-width: 1100px; border-collapse: separate; border-spacing: 0; table-layout: fixed; color: var(--navy-900); font-size: 13px; }
+.report-sheet__table th, .report-sheet__table td { padding: 14px 12px; border-right: 1px solid #e7e7f1; border-bottom: 1px solid #e7e7f1; text-align: left; vertical-align: top; overflow-wrap: anywhere; white-space: pre-wrap; }
+.report-sheet__table tr > :last-child { border-right: 0; }
+.report-sheet__table tbody tr:last-child td { border-bottom: 0; }
+.report-sheet__table th { position: sticky; top: 0; z-index: 1; color: #fff; background: var(--navy-900); font-size: 12px; font-weight: 800; }
+.report-sheet__table tbody tr:nth-child(even) { background: #f8f8fc; }
+.report-sheet__table th:nth-child(1) { width: 112px; }
+.report-sheet__table th:nth-child(2) { width: 145px; }
+.report-sheet__table th:nth-child(3) { width: 205px; }
+.report-sheet__table th:nth-child(4) { width: 115px; }
+.report-sheet__table th:nth-child(5), .report-sheet__table th:nth-child(6) { width: 170px; }
+.report-sheet__table th:nth-child(7) { width: 210px; }
+.report-sheet__name { font-weight: 800; }
+.report-sheet__date { white-space: nowrap; }
+.report-sheet__photos { display: flex; flex-wrap: wrap; gap: 6px; }
+.report-sheet__photos a { display: block; width: 62px; height: 54px; overflow: hidden; border-radius: 6px; background: #eeeefa; }
+.report-sheet__photos img { width: 100%; height: 100%; object-fit: cover; }
+.report-sheet__photos a:focus-visible { outline: 3px solid var(--gold-500); outline-offset: 2px; }
 .report-actions { align-items: center; }
 .report-actions .select { min-width: 150px; }
-@media (max-width: 650px) { .report-card-head { display: grid; gap: 5px; } .report-filters { width: 100%; } }
+@media (max-width: 650px) { .report-filters { width: 100%; } }
