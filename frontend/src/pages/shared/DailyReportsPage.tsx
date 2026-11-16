@@ -7,9 +7,25 @@ import '../admin/Management.css';
 import './DailyReportsPage.css';
 
 type Photo = { attachmentId: string; url: string };
-type Report = { id: string; date: string; employeeId: string; employeeName: string; eventDetail: string; city: string; eventRemarks: string; additionalRemarks: string; photos: Photo[] };
+type Report = { id: string; date: string; employeeId: string; employeeName: string; eventDetail: string; city: string; studentsAttended: number | 'NA' | null; dataCollected: number | 'NA' | null; eventRemarks: string; additionalRemarks: string; photos: Photo[] };
 type Summary = { date: string; employees: { id: string; name: string; employeeId: string; submitted: boolean }[] };
 function today() { const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date()).map(part => [part.type, part.value])); return `${parts.year}-${parts.month}-${parts.day}`; }
+function displayCount(value: number | 'NA' | null) { return value === 'NA' ? 'N/A' : value ?? '—'; }
+function parseCount(value: string, label: string) {
+  const number = Number(value);
+  if (!value.trim() || !Number.isSafeInteger(number) || number < 0) throw new Error(`${label} must be a non-negative whole number or N/A.`);
+  return number;
+}
+
+function CountField({ label, value, onChange, na, onNAChange }: { label: string; value: string; onChange: (value: string) => void; na: boolean; onNAChange: (value: boolean) => void }) {
+  return <div className="report-count-card">
+    <div className="report-count-card__head"><strong>{label}</strong><div className="report-count-mode" role="group" aria-label={`${label} entry mode`}>
+      <button type="button" aria-pressed={!na} onClick={() => onNAChange(false)}>Number</button>
+      <button type="button" aria-pressed={na} onClick={() => onNAChange(true)}>N/A</button>
+    </div></div>
+    {na ? <p className="report-count-card__na">N/A selected · explain below</p> : <label className="report-count-card__input"><span>Enter a whole number</span><input className="input" type="number" inputMode="numeric" min="0" step="1" required value={value} onChange={event => onChange(event.target.value)} placeholder="0" /></label>}
+  </div>;
+}
 
 function SelectedPhoto({ file, onRemove }: { file: File; onRemove: () => void }) {
   const [preview, setPreview] = useState('');
@@ -32,11 +48,14 @@ export default function DailyReportsPage({ mode = 'all' }: { mode?: 'all' | 'sub
   const [reports, setReports] = useState<Report[]>([]), [summary, setSummary] = useState<Summary | null>(null);
   const [date, setDate] = useState(today), [employeeId, setEmployeeId] = useState('');
   const [eventDetail, setEventDetail] = useState(''), [city, setCity] = useState('');
+  const [studentsAttended, setStudentsAttended] = useState(''), [studentsAttendedNA, setStudentsAttendedNA] = useState(false);
+  const [dataCollected, setDataCollected] = useState(''), [dataCollectedNA, setDataCollectedNA] = useState(false);
   const [eventRemarks, setEventRemarks] = useState(''), [additionalRemarks, setAdditionalRemarks] = useState('');
   const [files, setFiles] = useState<File[]>([]), [busy, setBusy] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [photoDragging, setPhotoDragging] = useState(false);
   const [error, setError] = useState(''), [notice, setNotice] = useState('');
+  const needsRemarks = studentsAttendedNA || dataCollectedNA;
   const query = new URLSearchParams(); if (date) query.set('date', date); if (employeeId && !employee) query.set('employeeId', employeeId);
   const suffix = query.toString() ? `?${query}` : '';
   async function load() {
@@ -61,6 +80,9 @@ export default function DailyReportsPage({ mode = 'all' }: { mode?: 'all' | 'sub
   async function submit(event: FormEvent) {
     event.preventDefault(); setBusy(true); setError(''); setNotice('');
     try {
+      const studentCount = studentsAttendedNA ? 'NA' : parseCount(studentsAttended, 'Students attended');
+      const collectionCount = dataCollectedNA ? 'NA' : parseCount(dataCollected, 'Data collected');
+      if (needsRemarks && !eventRemarks.trim()) throw new Error('Explain why a count is N/A in Event remarks.');
       if (!files.length || files.length > 8) throw new Error('Select 1 to 8 photos.');
       const photos = [];
       for (const file of files) {
@@ -68,8 +90,8 @@ export default function DailyReportsPage({ mode = 'all' }: { mode?: 'all' | 'sub
         const { attachmentId } = await api<{ attachmentId: string }>('/uploads/report-photo', { method: 'POST', body: file });
         photos.push({ attachmentId });
       }
-      await api('/daily-reports', { method: 'POST', body: JSON.stringify({ eventDetail, city, eventRemarks, additionalRemarks, photos }) });
-      setEventDetail(''); setCity(''); setEventRemarks(''); setAdditionalRemarks(''); setFiles([]);
+      await api('/daily-reports', { method: 'POST', body: JSON.stringify({ eventDetail, city, studentsAttended: studentCount, dataCollected: collectionCount, eventRemarks: needsRemarks ? eventRemarks.trim() : '', additionalRemarks: needsRemarks ? additionalRemarks.trim() : '', photos }) });
+      setEventDetail(''); setCity(''); setStudentsAttended(''); setStudentsAttendedNA(false); setDataCollected(''); setDataCollectedNA(false); setEventRemarks(''); setAdditionalRemarks(''); setFiles([]);
       if (photoInputRef.current) photoInputRef.current.value = '';
       setNotice('Report submitted to your sub-admin.'); await load();
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Submission failed. Please try again.'); }
@@ -101,15 +123,23 @@ export default function DailyReportsPage({ mode = 'all' }: { mode?: 'all' | 'sub
         </div>
 
         <div className="report-section">
-          <div className="report-section__heading"><span className="report-section__number">02</span><div><h4>Remarks</h4><p>Capture context for your sub-admin</p></div></div>
-          <div className="report-remarks-grid">
-            <label className="report-field"><span>Event remarks</span><textarea className="input report-textarea" maxLength={3000} placeholder="Anything notable about the event…" value={eventRemarks} onChange={e => setEventRemarks(e.target.value)} /></label>
-            <label className="report-field"><span>Additional remarks</span><textarea className="input report-textarea" maxLength={3000} placeholder="Follow-ups, requests, or extra notes…" value={additionalRemarks} onChange={e => setAdditionalRemarks(e.target.value)} /></label>
+          <div className="report-section__heading"><span className="report-section__number">02</span><div><h4>Data Collected</h4><p>Enter each count, or select N/A when a count is unavailable.</p></div></div>
+          <div className="report-count-grid">
+            <CountField label="Number of students attended" value={studentsAttended} onChange={setStudentsAttended} na={studentsAttendedNA} onNAChange={setStudentsAttendedNA} />
+            <CountField label="Number of data collected" value={dataCollected} onChange={setDataCollected} na={dataCollectedNA} onNAChange={setDataCollectedNA} />
           </div>
         </div>
 
+        {needsRemarks && <div className="report-section">
+          <div className="report-section__heading"><span className="report-section__number">03</span><div><h4>Remarks</h4><p>Explain why a count is N/A for your sub-admin.</p></div></div>
+          <div className="report-remarks-grid">
+            <label className="report-field"><span>Event remarks <em>Required</em></span><textarea className="input report-textarea" required maxLength={3000} placeholder="Explain why a count is N/A…" value={eventRemarks} onChange={e => setEventRemarks(e.target.value)} /></label>
+            <label className="report-field"><span>Additional remarks</span><textarea className="input report-textarea" maxLength={3000} placeholder="Follow-ups, requests, or extra notes…" value={additionalRemarks} onChange={e => setAdditionalRemarks(e.target.value)} /></label>
+          </div>
+        </div>}
+
         <div className="report-section">
-          <div className="report-section__heading"><span className="report-section__number">03</span><div><h4>Event pictures</h4><p>Add 1–8 pictures to support your report.</p></div></div>
+          <div className="report-section__heading"><span className="report-section__number">{needsRemarks ? '04' : '03'}</span><div><h4>Event pictures</h4><p>Add 1–8 pictures to support your report.</p></div></div>
           <div className={`report-photo-dropzone ${photoDragging ? 'is-dragging' : ''}`} onDragOver={e => { e.preventDefault(); setPhotoDragging(true); }} onDragLeave={() => setPhotoDragging(false)} onDrop={dropFiles}>
             <div className="report-photo-dropzone__icon"><ImagePlus size={23} /></div><div><strong>Drop your pictures here</strong><span>JPG, PNG, or WebP · 5 MB each</span></div><button type="button" className="btn btn-ghost" onClick={() => photoInputRef.current?.click()}><Camera size={16} /> Add pictures</button>
             <input ref={photoInputRef} className="sr-only" tabIndex={-1} type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={e => { addPhotos(Array.from(e.target.files || [])); e.target.value = ''; }} />
@@ -131,12 +161,14 @@ export default function DailyReportsPage({ mode = 'all' }: { mode?: 'all' | 'sub
         </div>
       </div>
       {!reports.length ? <p className="manage-note">No reports found for this selection.</p> : <div className="report-sheet__scroll"><table className="report-sheet__table">
-        <thead><tr><th scope="col">Date</th><th scope="col">Name</th><th scope="col">Event Detail</th><th scope="col">City</th><th scope="col">Event Remarks</th><th scope="col">Additional Remarks</th><th scope="col">Event Pictures</th></tr></thead>
+        <thead><tr><th scope="col">Date</th><th scope="col">Name</th><th scope="col">Event Detail</th><th scope="col">City</th><th scope="col">Students Attended</th><th scope="col">Data Collected</th><th scope="col">Event Remarks</th><th scope="col">Additional Remarks</th><th scope="col">Event Pictures</th></tr></thead>
         <tbody>{reports.map(report => <tr key={report.id}>
           <td className="report-sheet__date">{report.date}</td>
           <td className="report-sheet__name">{report.employeeName}</td>
           <td>{report.eventDetail}</td>
           <td>{report.city}</td>
+          <td>{displayCount(report.studentsAttended)}</td>
+          <td>{displayCount(report.dataCollected)}</td>
           <td>{report.eventRemarks || '—'}</td>
           <td>{report.additionalRemarks || '—'}</td>
           <td><div className="report-sheet__photos">{report.photos.map((photo, index) => <a key={photo.attachmentId} href={new URL(photo.url, window.location.origin).href} target="_blank" rel="noreferrer" aria-label={`Open picture ${index + 1} for ${report.employeeName}`} title="Open full picture"><img src={photo.url} alt={`Event picture ${index + 1} for ${report.employeeName}`} loading="lazy" /></a>)}</div></td>

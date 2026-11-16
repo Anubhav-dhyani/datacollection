@@ -21,13 +21,25 @@ function scope(req) {
 function visible(user, report) {
   return user.role === 'MAIN_ADMIN' || (user.role === 'SUB_ADMIN' && report.subAdminId === user.id) || (user.role === 'EMPLOYEE' && report.employeeId === user.id);
 }
+function count(value, label) {
+  if (value === 'NA') return { value: undefined, na: true };
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) error(400, `${label} must be a non-negative whole number or N/A.`);
+  return { value, na: false };
+}
 function output(report) {
   const value = report.toObject ? report.toObject() : { ...report };
+  const eventRemarks = value.eventRemarks || value.dataCollectionRemarks || '';
   delete value._id;
   delete value.data;
   delete value.dataFiles;
   delete value.dataSections;
+  delete value.dataCollectionRemarks;
+  delete value.studentsAttendedNA;
+  delete value.dataCollectedNA;
   return { ...value,
+    eventRemarks,
+    studentsAttended: report.studentsAttendedNA ? 'NA' : report.studentsAttended ?? null,
+    dataCollected: report.dataCollectedNA ? 'NA' : report.dataCollected ?? null,
     photos: (value.photos || []).map(photo => ({ attachmentId: photo.attachmentId, url: `${config.prefix}/uploads/${photo.attachmentId}` })),
   };
 }
@@ -42,8 +54,9 @@ router.get('/export.csv', wrap(async (req, res) => {
   const reports = await DailyReport.find(scope(req)).sort({ date: -1, createdAt: -1 }).lean();
   const cell = value => `"${String(value ?? '').replace(/^[=+@-]/, "'$&").replace(/"/g, '""')}"`;
   const photoUrl = attachmentId => new URL(`${config.prefix}/uploads/${attachmentId}`, config.frontendOrigins[0]).href;
-  const rows = [['Date', 'Name', 'Event Detail', 'City', 'Event Remarks', 'Additional Remarks', 'Event pictures'],
-    ...reports.map(report => [report.date, report.employeeName, report.eventDetail, report.city, report.eventRemarks, report.additionalRemarks,
+  const rows = [['Date', 'Name', 'Event Detail', 'City', 'Students Attended', 'Data Collected', 'Event Remarks', 'Additional Remarks', 'Event pictures'],
+    ...reports.map(report => [report.date, report.employeeName, report.eventDetail, report.city,
+      report.studentsAttendedNA ? 'N/A' : report.studentsAttended ?? '', report.dataCollectedNA ? 'N/A' : report.dataCollected ?? '', report.eventRemarks || report.dataCollectionRemarks || '', report.additionalRemarks,
       report.photos.map(photo => photoUrl(photo.attachmentId)).join('; ')])];
   res.set('Content-Type', 'text/csv; charset=utf-8').set('Content-Disposition', 'attachment; filename="geu-daily-reports.csv"');
   res.send('\ufeff' + rows.map(row => row.map(cell).join(',')).join('\r\n'));
@@ -61,6 +74,11 @@ router.post('/', wrap(async (req, res) => {
   if (['data', 'dataFileIds', 'dataSections'].some(field => req.body[field] !== undefined)) error(400, 'Data sections are no longer supported.');
   const manager = await User.findOne({ id: req.user.reportSubAdminId, role: 'SUB_ADMIN', status: 'ACTIVE' }).lean();
   if (!manager) error(400, 'Ask the admin to assign an active sub-admin.');
+  const studentsAttended = count(req.body.studentsAttended, 'Students attended');
+  const dataCollected = count(req.body.dataCollected, 'Data collected');
+  const needsRemarks = studentsAttended.na || dataCollected.na;
+  const eventRemarks = needsRemarks ? text(req.body.eventRemarks, 'event remarks', 3000) : '';
+  const additionalRemarks = needsRemarks ? String(req.body.additionalRemarks || '').slice(0, 3000) : '';
   if (!Array.isArray(req.body.photos) || req.body.photos.length < 1 || req.body.photos.length > 8) error(400, 'Add 1 to 8 event pictures.');
   const ids = new Set();
   const photos = req.body.photos.map(photo => {
@@ -73,8 +91,9 @@ router.post('/', wrap(async (req, res) => {
   if (attachments.length !== photos.length) error(400, 'Upload photos again before submitting.');
   const reportFields = { id: id(), date: today(), employeeId: req.user.id, employeeName: req.user.name, subAdminId: manager.id,
     eventDetail: text(req.body.eventDetail, 'event detail', 3000), city: text(req.body.city, 'city', 120),
-    eventRemarks: String(req.body.eventRemarks || '').slice(0, 3000),
-    additionalRemarks: String(req.body.additionalRemarks || '').slice(0, 3000), photos };
+    studentsAttended: studentsAttended.value, studentsAttendedNA: studentsAttended.na,
+    dataCollected: dataCollected.value, dataCollectedNA: dataCollected.na,
+    eventRemarks, additionalRemarks, photos };
   const marked = [];
   let report;
   try {

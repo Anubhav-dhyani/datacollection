@@ -41,6 +41,8 @@ const dailyReportSchema = new Schema({
   employeeId: { type: String, required: true, index: true }, employeeName: { type: String, required: true },
   subAdminId: { type: String, required: true, index: true },
   eventDetail: { type: String, required: true, maxlength: 3000 }, city: { type: String, required: true, maxlength: 120 },
+  studentsAttended: { type: Number, min: 0 }, studentsAttendedNA: { type: Boolean, default: false },
+  dataCollected: { type: Number, min: 0 }, dataCollectedNA: { type: Boolean, default: false },
   eventRemarks: { type: String, default: '', maxlength: 3000 },
   additionalRemarks: { type: String, default: '', maxlength: 3000 }, photos: { type: [photoSchema], default: [] },
 }, options('daily_reports'));
