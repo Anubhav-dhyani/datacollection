@@ -7,6 +7,7 @@ export interface User {
   employeeId: string;
   role: Role;
   reportSubAdminId?: string | null;
+  reportSubAdminIds?: string[];
   status?: 'ACTIVE' | 'DISABLED';
   passwordChangeRequired?: boolean;
   lastLoginAt?: string;

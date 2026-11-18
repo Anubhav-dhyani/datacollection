@@ -33,7 +33,7 @@ router.get('/:id', wrap(async (req, res) => {
   if (!attachment) error(404, 'Attachment not found.');
   if (attachment.reportId) {
     const report = await DailyReport.findOne({ id: attachment.reportId }).lean();
-    if (!report || !(req.user.role === 'MAIN_ADMIN' || (req.user.role === 'SUB_ADMIN' && report.subAdminId === req.user.id) || (req.user.role === 'EMPLOYEE' && report.employeeId === req.user.id))) error(404, 'Attachment not found.');
+    if (!report || !(req.user.role === 'MAIN_ADMIN' || (req.user.role === 'SUB_ADMIN' && (report.subAdminIds?.includes(req.user.id) || report.subAdminId === req.user.id)) || (req.user.role === 'EMPLOYEE' && report.employeeId === req.user.id))) error(404, 'Attachment not found.');
   } else if (attachment.ownerId !== req.user.id) error(404, 'Attachment not found.');
   res.set('Cache-Control', 'private, max-age=300');
   res.type(attachment.mimeType);

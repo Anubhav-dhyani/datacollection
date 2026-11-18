@@ -2,6 +2,7 @@ const express = require('express');
 const argon2 = require('argon2');
 const { User, Session } = require('../models');
 const { error, text, plain, audit, wrap } = require('../services/common');
+const { assignedTo, validateAssignments } = require('../services/assignments');
 
 const router = express.Router();
 router.use((req, _res, next) => req.user.role === 'MAIN_ADMIN' ? next() : next(Object.assign(new Error('Admin access required.'), { status: 403 })));
@@ -26,21 +27,22 @@ router.get('/accounts', wrap(async (_req, res) => {
 router.patch('/accounts/:id', wrap(async (req, res) => {
   const user = await User.findOne({ id: req.params.id, role: { $in: ['MAIN_ADMIN', 'SUB_ADMIN', 'EMPLOYEE'] } });
   if (!user) error(404, 'Account not found.');
-  const allowed = ['name', 'email', 'employeeId', 'reportSubAdminId', 'status'];
+  const allowed = ['name', 'email', 'employeeId', 'reportSubAdminId', 'reportSubAdminIds', 'status'];
   const fields = Object.keys(req.body);
   if (!fields.length || fields.some(field => !allowed.includes(field))) error(400, 'Unsupported account change.');
   if (req.body.name !== undefined) user.name = text(req.body.name, 'name', 120);
   if (req.body.email !== undefined) user.email = validEmail(req.body.email);
   if (req.body.employeeId !== undefined) user.employeeId = validEmployeeId(req.body.employeeId);
-  if (req.body.reportSubAdminId !== undefined) {
+  if (req.body.reportSubAdminIds !== undefined || req.body.reportSubAdminId !== undefined) {
     if (user.role !== 'EMPLOYEE') error(400, 'Only employees can be assigned to a sub-admin.');
-    if (!await User.exists({ id: req.body.reportSubAdminId, role: 'SUB_ADMIN', status: 'ACTIVE' })) error(400, 'Choose an active sub-admin.');
-    user.reportSubAdminId = req.body.reportSubAdminId;
+    const ids = await validateAssignments(req.body.reportSubAdminIds !== undefined ? req.body.reportSubAdminIds : [req.body.reportSubAdminId]);
+    user.reportSubAdminIds = ids;
+    user.reportSubAdminId = ids[0];
   }
   if (req.body.status !== undefined) {
     if (user.id === req.user.id) error(400, 'You cannot disable your own account.');
     if (!['ACTIVE', 'DISABLED'].includes(req.body.status)) error(400, 'Invalid account status.');
-    if (user.role === 'SUB_ADMIN' && req.body.status === 'DISABLED' && await User.exists({ role: 'EMPLOYEE', reportSubAdminId: user.id, status: 'ACTIVE' })) error(409, 'Reassign this sub-admin’s active employees first.');
+    if (user.role === 'SUB_ADMIN' && req.body.status === 'DISABLED' && await User.exists({ role: 'EMPLOYEE', ...assignedTo(user.id), status: 'ACTIVE' })) error(409, 'Reassign this sub-admin’s active employees first.');
     user.status = req.body.status;
   }
   await user.save();
@@ -66,7 +68,7 @@ router.delete('/accounts/:id', wrap(async (req, res) => {
   const user = await User.findOne({ id: req.params.id, role: { $in: ['MAIN_ADMIN', 'SUB_ADMIN', 'EMPLOYEE'] } });
   if (!user) error(404, 'Account not found.');
   if (user.role === 'MAIN_ADMIN') error(403, 'The super-admin account cannot be deleted.');
-  if (user.role === 'SUB_ADMIN' && await User.exists({ role: 'EMPLOYEE', reportSubAdminId: user.id })) error(409, 'Reassign or delete this sub-admin’s employees first.');
+  if (user.role === 'SUB_ADMIN' && await User.exists({ role: 'EMPLOYEE', ...assignedTo(user.id) })) error(409, 'Reassign or delete this sub-admin’s employees first.');
   await Session.deleteMany({ userId: user.id });
   await User.deleteOne({ id: user.id });
   await audit(req.user.id, 'DELETE_USER', 'User', user.id, { role: user.role, email: user.email });

@@ -3,6 +3,7 @@ const { DailyReport, Attachment, User } = require('../models');
 const { id, error, text, audit, wrap } = require('../services/common');
 const imageStorage = require('../services/imageStorage');
 const config = require('../config');
+const { assignedIds, assignedTo } = require('../services/assignments');
 const router = express.Router();
 
 function today() {
@@ -10,7 +11,7 @@ function today() {
   return `${parts.year}-${parts.month}-${parts.day}`;
 }
 function scope(req) {
-  const filter = req.user.role === 'MAIN_ADMIN' ? {} : req.user.role === 'SUB_ADMIN' ? { subAdminId: req.user.id } : { employeeId: req.user.id };
+  const filter = req.user.role === 'MAIN_ADMIN' ? {} : req.user.role === 'SUB_ADMIN' ? { $or: [{ subAdminIds: req.user.id }, { subAdminId: req.user.id }] } : { employeeId: req.user.id };
   if (req.query.date) {
     if (typeof req.query.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(req.query.date)) error(400, 'Invalid date filter.');
     filter.date = req.query.date;
@@ -19,7 +20,7 @@ function scope(req) {
   return filter;
 }
 function visible(user, report) {
-  return user.role === 'MAIN_ADMIN' || (user.role === 'SUB_ADMIN' && report.subAdminId === user.id) || (user.role === 'EMPLOYEE' && report.employeeId === user.id);
+  return user.role === 'MAIN_ADMIN' || (user.role === 'SUB_ADMIN' && (report.subAdminIds?.includes(user.id) || report.subAdminId === user.id)) || (user.role === 'EMPLOYEE' && report.employeeId === user.id);
 }
 function count(value, label) {
   if (value === 'NA') return { value: undefined, na: true };
@@ -46,9 +47,9 @@ function output(report) {
 router.get('/summary', wrap(async (req, res) => {
   if (!['MAIN_ADMIN', 'SUB_ADMIN'].includes(req.user.role)) error(403, 'Access denied.');
   const date = today();
-  const employees = await User.find({ role: 'EMPLOYEE', status: 'ACTIVE', ...(req.user.role === 'SUB_ADMIN' ? { reportSubAdminId: req.user.id } : {}) }).sort({ name: 1 }).lean();
+  const employees = await User.find({ role: 'EMPLOYEE', status: 'ACTIVE', ...(req.user.role === 'SUB_ADMIN' ? assignedTo(req.user.id) : {}) }).sort({ name: 1 }).lean();
   const submitted = new Set(await DailyReport.distinct('employeeId', { date, employeeId: { $in: employees.map(person => person.id) } }));
-  res.json({ date, employees: employees.map(person => ({ id: person.id, name: person.name, employeeId: person.employeeId, subAdminId: person.reportSubAdminId, submitted: submitted.has(person.id) })) });
+  res.json({ date, employees: employees.map(person => ({ id: person.id, name: person.name, employeeId: person.employeeId, subAdminId: person.reportSubAdminId, subAdminIds: assignedIds(person), submitted: submitted.has(person.id) })) });
 }));
 router.get('/export.csv', wrap(async (req, res) => {
   const reports = await DailyReport.find(scope(req)).sort({ date: -1, createdAt: -1 }).lean();
@@ -72,8 +73,9 @@ router.get('/:id', wrap(async (req, res) => {
 router.post('/', wrap(async (req, res) => {
   if (req.user.role !== 'EMPLOYEE') error(403, 'Only employees can submit reports.');
   if (['data', 'dataFileIds', 'dataSections'].some(field => req.body[field] !== undefined)) error(400, 'Data sections are no longer supported.');
-  const manager = await User.findOne({ id: req.user.reportSubAdminId, role: 'SUB_ADMIN', status: 'ACTIVE' }).lean();
-  if (!manager) error(400, 'Ask the admin to assign an active sub-admin.');
+  const managers = await User.find({ id: { $in: assignedIds(req.user) }, role: 'SUB_ADMIN', status: 'ACTIVE' }).lean();
+  if (!managers.length) error(400, 'Ask the admin to assign an active sub-admin.');
+  const subAdminIds = managers.map(manager => manager.id);
   const studentsAttended = count(req.body.studentsAttended, 'Students attended');
   const dataCollected = count(req.body.dataCollected, 'Data collected');
   const needsRemarks = studentsAttended.na || dataCollected.na;
@@ -89,7 +91,7 @@ router.post('/', wrap(async (req, res) => {
   });
   const attachments = await Attachment.find({ id: { $in: [...ids] }, ownerId: req.user.id, kind: 'REPORT', reportId: { $exists: false }, expiresAt: { $gt: new Date() } }).select('storageKey').lean();
   if (attachments.length !== photos.length) error(400, 'Upload photos again before submitting.');
-  const reportFields = { id: id(), date: today(), employeeId: req.user.id, employeeName: req.user.name, subAdminId: manager.id,
+  const reportFields = { id: id(), date: today(), employeeId: req.user.id, employeeName: req.user.name, subAdminId: subAdminIds[0], subAdminIds,
     eventDetail: text(req.body.eventDetail, 'event detail', 3000), city: text(req.body.city, 'city', 120),
     studentsAttended: studentsAttended.value, studentsAttendedNA: studentsAttended.na,
     dataCollected: dataCollected.value, dataCollectedNA: dataCollected.na,
@@ -106,7 +108,7 @@ router.post('/', wrap(async (req, res) => {
     throw cause;
   }
   await Attachment.updateMany({ id: { $in: [...ids] }, ownerId: req.user.id, reportId: { $exists: false } }, { $set: { reportId: report.id }, $unset: { expiresAt: 1 } });
-  await audit(req.user.id, 'CREATE_DAILY_REPORT', 'DailyReport', report.id, { date: report.date, subAdminId: manager.id });
+  await audit(req.user.id, 'CREATE_DAILY_REPORT', 'DailyReport', report.id, { date: report.date, subAdminIds });
   res.status(201).json(output(report));
 }));
 module.exports = router;

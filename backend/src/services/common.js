@@ -9,7 +9,7 @@ function text(value, name, max = 1000) {
 function plain(doc) {
   if (!doc) return null;
   const value = doc.toObject ? doc.toObject() : { ...doc };
-  const fields = ['id', 'name', 'email', 'employeeId', 'role', 'reportSubAdminId', 'status', 'mustChangePassword', 'lastLoginAt'];
+  const fields = ['id', 'name', 'email', 'employeeId', 'role', 'reportSubAdminId', 'reportSubAdminIds', 'status', 'mustChangePassword', 'lastLoginAt'];
   return Object.fromEntries(fields.filter(field => value[field] !== undefined).map(field => [field, value[field]]));
 }
 async function audit(actorId, action, targetType, targetId, details = {}) {

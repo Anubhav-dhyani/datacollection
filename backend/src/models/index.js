@@ -9,12 +9,14 @@ const userSchema = new Schema({
   employeeId: { type: String, required: true, unique: true, uppercase: true, trim: true },
   role: { type: String, required: true, enum: ['MAIN_ADMIN', 'SUB_ADMIN', 'EMPLOYEE'] },
   reportSubAdminId: { type: String, default: null, index: true },
+  reportSubAdminIds: { type: [String], default: [] },
   status: { type: String, enum: ['ACTIVE', 'DISABLED'], default: 'ACTIVE' },
   passwordHash: { type: String, required: true, select: false },
   mustChangePassword: { type: Boolean, default: true },
   lastLoginAt: Date,
 }, options('users'));
 userSchema.index({ role: 1, status: 1 });
+userSchema.index({ reportSubAdminIds: 1, role: 1, status: 1 });
 
 const sessionSchema = new Schema({
   tokenHash: { type: String, required: true, unique: true },
@@ -40,6 +42,7 @@ const dailyReportSchema = new Schema({
   id: { type: String, required: true, unique: true }, date: { type: String, required: true, index: true },
   employeeId: { type: String, required: true, index: true }, employeeName: { type: String, required: true },
   subAdminId: { type: String, required: true, index: true },
+  subAdminIds: { type: [String], default: [] },
   eventDetail: { type: String, required: true, maxlength: 3000 }, city: { type: String, required: true, maxlength: 120 },
   studentsAttended: { type: Number, min: 0 }, studentsAttendedNA: { type: Boolean, default: false },
   dataCollected: { type: Number, min: 0 }, dataCollectedNA: { type: Boolean, default: false },
@@ -47,6 +50,7 @@ const dailyReportSchema = new Schema({
   additionalRemarks: { type: String, default: '', maxlength: 3000 }, photos: { type: [photoSchema], default: [] },
 }, options('daily_reports'));
 dailyReportSchema.index({ subAdminId: 1, date: -1 });
+dailyReportSchema.index({ subAdminIds: 1, date: -1 });
 
 const auditSchema = new Schema({ at: { type: Date, default: Date.now }, actorId: String, action: String, targetType: String, targetId: String, details: Schema.Types.Mixed }, { collection: 'audit_logs', versionKey: false });
 auditSchema.index({ at: -1 });
