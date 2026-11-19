@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
-import { renderCollage, type CollageEmployee } from '../utils/reportCollage';
+import { COLLAGE_PHOTO_LIMIT, renderCollage, type CollageEmployee } from '../utils/reportCollage';
 
 type Collage = { url: string; count: number };
 
@@ -28,12 +28,12 @@ export default function ReportCollages({ date, employeeId }: { date: string; emp
       const missing = employees.filter(person => !person.photo);
       if (missing.length) throw new Error(`Missing photos for ${missing.map(person => person.employeeName).join(', ')}. Every employee needs a photo before generating collages.`);
       const result: Collage[] = [];
-      const total = Math.ceil(employees.length / 7);
-      for (let index = 0; index < employees.length; index += 7) {
-        const batch = employees.slice(index, index + 7);
-        const number = Math.floor(index / 7) + 1;
+      const total = Math.ceil(employees.length / COLLAGE_PHOTO_LIMIT);
+      for (let index = 0; index < employees.length; index += COLLAGE_PHOTO_LIMIT) {
+        const batch = employees.slice(index, index + COLLAGE_PHOTO_LIMIT);
+        const number = Math.floor(index / COLLAGE_PHOTO_LIMIT) + 1;
         setProgress(`Creating collage ${number} of ${total}…`);
-        const blob = await renderCollage(batch, date, number, total, request.signal);
+        const blob = await renderCollage(batch, request.signal);
         request.signal.throwIfAborted();
         const url = URL.createObjectURL(blob);
         urls.current.push(url);
@@ -51,7 +51,7 @@ export default function ReportCollages({ date, employeeId }: { date: string; emp
   }
 
   return <section className="report-collages" aria-label="Employee photo collages" aria-busy={busy}>
-    <div className="report-list-head"><div><h3>Employee photo collages</h3><p>One photo per employee, with city and students attended. Up to 7 photos per collage; the last may have fewer.</p><p>The first photo from each employee’s latest report on the selected date is used.</p></div>
+    <div className="report-list-head"><div><h3>Employee photo collages</h3><p>One photo per employee, with city and attendance written on the photo. Up to 9 photos per collage; the last may have fewer.</p><p>The first photo from each employee’s latest report on the selected date is used. Photos are cropped to fill each tile.</p></div>
       <button type="button" className="btn btn-primary" disabled={!date || busy} onClick={() => void generate()}>{busy ? 'Creating collages…' : collages.length ? 'Regenerate collages' : 'Create collages'}</button>
     </div>
     {!date && <p className="manage-note">Select a date above to create collages.</p>}
