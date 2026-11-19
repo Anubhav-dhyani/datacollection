@@ -67,7 +67,7 @@ export default function DailyReportsPage({ mode = 'all' }: { mode?: 'all' | 'sub
   function addPhotos(incoming: File[]) {
     const merged = [...files];
     for (const file of incoming) {
-      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || !file.size || file.size > 5 * 1024 * 1024) { setError(`${file.name} must be a JPG, PNG or WebP under 5 MB.`); return; }
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || !file.size || file.size > 15 * 1024 * 1024) { setError(`${file.name} must be a JPG, PNG or WebP up to 15 MB.`); return; }
       if (!merged.some(item => item.name === file.name && item.size === file.size && item.lastModified === file.lastModified)) merged.push(file);
     }
     if (merged.length > 8) { setError('Add at most 8 event pictures.'); return; }
@@ -86,7 +86,7 @@ export default function DailyReportsPage({ mode = 'all' }: { mode?: 'all' | 'sub
       if (!files.length || files.length > 8) throw new Error('Select 1 to 8 photos.');
       const photos = [];
       for (const file of files) {
-        if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024) throw new Error('Use JPG, PNG or WebP photos up to 5 MB each.');
+        if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 15 * 1024 * 1024) throw new Error('Use JPG, PNG or WebP photos up to 15 MB each.');
         const { attachmentId } = await api<{ attachmentId: string }>('/uploads/report-photo', { method: 'POST', body: file });
         photos.push({ attachmentId });
       }
@@ -141,7 +141,7 @@ export default function DailyReportsPage({ mode = 'all' }: { mode?: 'all' | 'sub
         <div className="report-section">
           <div className="report-section__heading"><span className="report-section__number">{needsRemarks ? '04' : '03'}</span><div><h4>Event pictures</h4><p>Add 1–8 pictures to support your report.</p></div></div>
           <div className={`report-photo-dropzone ${photoDragging ? 'is-dragging' : ''}`} onDragOver={e => { e.preventDefault(); setPhotoDragging(true); }} onDragLeave={() => setPhotoDragging(false)} onDrop={dropFiles}>
-            <div className="report-photo-dropzone__icon"><ImagePlus size={23} /></div><div><strong>Drop your pictures here</strong><span>JPG, PNG, or WebP · 5 MB each</span></div><button type="button" className="btn btn-ghost" onClick={() => photoInputRef.current?.click()}><Camera size={16} /> Add pictures</button>
+            <div className="report-photo-dropzone__icon"><ImagePlus size={23} /></div><div><strong>Drop your pictures here</strong><span>JPG, PNG, or WebP · 15 MB each</span></div><button type="button" className="btn btn-ghost" onClick={() => photoInputRef.current?.click()}><Camera size={16} /> Add pictures</button>
             <input ref={photoInputRef} className="sr-only" tabIndex={-1} type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={e => { addPhotos(Array.from(e.target.files || [])); e.target.value = ''; }} />
           </div>
           {files.length > 0 && <div className="report-photo-preview">{files.map((file, index) => <SelectedPhoto key={`${file.name}-${file.lastModified}-${index}`} file={file} onRemove={() => setFiles(current => current.filter((_, item) => item !== index))} />)}</div>}
