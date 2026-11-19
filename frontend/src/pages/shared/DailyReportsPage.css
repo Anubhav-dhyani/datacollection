@@ -92,4 +92,11 @@
 .report-sheet__photos a:focus-visible { outline: 3px solid var(--gold-500); outline-offset: 2px; }
 .report-actions { align-items: center; }
 .report-actions .select { min-width: 150px; }
+.report-collages { display: grid; gap: 14px; padding: 22px 0; margin-bottom: 20px; border-top: 1px solid #d9d9e9; border-bottom: 1px solid #d9d9e9; }
+.report-collages .report-list-head { margin-bottom: 0; }
+.report-collages .report-list-head p { max-width: 650px; margin-top: 5px; }
+.report-collages__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr)); gap: 20px; }
+.report-collages__grid figure { min-width: 0; margin: 0; }
+.report-collages__grid img { display: block; width: 100%; height: auto; border-radius: 8px; }
+.report-collages__grid figcaption { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-top: 10px; font-size: 13px; }
 @media (max-width: 650px) { .report-filters { width: 100%; } }

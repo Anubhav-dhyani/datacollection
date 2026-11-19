@@ -123,6 +123,15 @@ test('email login, reporting roles, photos, filters, and removed ticket routes',
     assert.equal((await manager.get(`${root}/daily-reports`)).body.length, 1);
     assert.equal((await employee.get(`${root}/daily-reports`)).body.length, 1);
     assert.equal((await other.get(`${root}/daily-reports`)).body.length, 0);
+    assert.equal((await admin.get(`${root}/daily-reports/collage`)).status, 400);
+    assert.equal((await admin.get(`${root}/daily-reports/collage?date=invalid`)).status, 400);
+    const collagePath = `${root}/daily-reports/collage?date=${report.body.date}`;
+    const collage = await manager.get(collagePath);
+    assert.equal(collage.status, 200);
+    assert.deepEqual(collage.body, [{ employeeId: employeeUser.body.id, employeeName: 'Field Employee', city: 'Dehradun', studentsAttended: 42, photo: { url: report.body.photos[0].url } }]);
+    assert.equal((await other.get(collagePath)).body.length, 0);
+    assert.equal((await employee.get(collagePath)).body.length, 1);
+    assert.equal((await admin.get(`${collagePath}&employeeId=${secondEmployee.body.id}`)).body.length, 0);
     assert.equal((await admin.get(`${root}/daily-reports?date=${report.body.date}&employeeId=${employeeUser.body.id}`)).body.length, 1);
     assert.equal((await manager.get(`${root}/daily-reports/summary`)).body.employees.filter(person => person.submitted).length, 1);
     assert.equal((await manager.get(`${root}/daily-reports/summary`)).body.employees.filter(person => !person.submitted).length, 1);
@@ -147,6 +156,10 @@ test('email login, reporting roles, photos, filters, and removed ticket routes',
     const bothNA = await employee.post(`${root}/daily-reports`).send({ eventDetail: 'Another event', city: 'Dehradun', studentsAttended: 'NA', dataCollected: 'NA', eventRemarks: 'Event was cancelled.', photos: [{ attachmentId: fourthImage.body.attachmentId }] });
     assert.equal(bothNA.status, 201, JSON.stringify(bothNA.body));
     assert.equal(bothNA.body.dataCollected, 'NA');
+    const latestCollage = await admin.get(collagePath);
+    assert.equal(latestCollage.body.length, 1, 'Each employee appears only once despite multiple reports.');
+    assert.equal(latestCollage.body[0].studentsAttended, 'NA');
+    assert.equal(latestCollage.body[0].photo.url, bothNA.body.photos[0].url);
     const csv = (await admin.get(`${root}/daily-reports/export.csv`)).text;
     assert.match(csv, /Event Remarks/);
     assert.match(csv, /Students Attended/);

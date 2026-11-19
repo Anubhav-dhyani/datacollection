@@ -3,6 +3,7 @@ import { CalendarDays, Camera, Check, FileText, ImagePlus, UserRound, X } from '
 import { api } from '../../api';
 import { Link } from 'react-router-dom';
 import { useCurrentUser } from '../../state/session';
+import ReportCollages from '../../components/ReportCollages';
 import '../admin/Management.css';
 import './DailyReportsPage.css';
 
@@ -160,6 +161,7 @@ export default function DailyReportsPage({ mode = 'all' }: { mode?: 'all' | 'sub
           {!employee && <label>Employee<select className="select" value={employeeId} onChange={e => setEmployeeId(e.target.value)}><option value="">All employees</option>{summary?.employees.map(person => <option key={person.id} value={person.id}>{person.name} · {person.employeeId}</option>)}</select></label>}
         </div>
       </div>
+      <ReportCollages key={`${date}-${employeeId}`} date={date} employeeId={employeeId} />
       {!reports.length ? <p className="manage-note">No reports found for this selection.</p> : <div className="report-sheet__scroll"><table className="report-sheet__table">
         <thead><tr><th scope="col">Date</th><th scope="col">Name</th><th scope="col">Event Detail</th><th scope="col">City</th><th scope="col">Students Attended</th><th scope="col">Data Collected</th><th scope="col">Event Remarks</th><th scope="col">Additional Remarks</th><th scope="col">Event Pictures</th></tr></thead>
         <tbody>{reports.map(report => <tr key={report.id}>

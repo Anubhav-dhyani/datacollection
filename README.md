@@ -24,6 +24,12 @@ Report and account data, sessions, audit logs, and photo metadata are stored in 
 
 See [the EC2 and S3 deployment guide](deploy/README.md) for the `mktreport.geu.ac.in` setup.
 
+## Employee photo collages
+
+In **Daily Reports** (or **My Reports**), select a date and optionally an employee, then click **Create collages**. Each employee with a report in that selection appears exactly once, using the first photo from their latest report. Collages contain up to seven photos, with any remaining employees on the final collage. Every photo includes a caption with the city, students attended (or N/A), and employee name. Open a preview or use **Download JPG** to save each collage. Photos retain their full aspect ratio and have black dividers, with captions over a dark gradient along each photo's lower edge. If a photo is missing or cannot load, generation stops with an error so an employee is never silently omitted.
+
+Collage sources follow the same admin, sub-admin, and employee permissions as reports. They are fetched separately without the report table's 1,000-row cap. Images are composed in the browser; no generated collage is uploaded or stored on the server.
+
 ## API and checks
 
 The API prefix is `/api/v1`. Auth uses an HttpOnly session cookie. The active routes are `/auth`, `/report-team`, `/daily-reports`, `/uploads/report-photo`, `/admin/database`, and `/health`. The old ticket and general data-file endpoints are removed. Existing MongoDB records are left intact; this code does not delete stored records. On startup, legacy `LAB_ASSISTANT` accounts are reclassified as `EMPLOYEE`. Legacy read-only `ADMIN` accounts cannot sign in to this reporting portal.
