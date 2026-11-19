@@ -85,6 +85,14 @@
 .report-sheet__table th:nth-child(7), .report-sheet__table th:nth-child(8) { width: 160px; }
 .report-sheet__table th:nth-child(9) { width: 210px; }
 .report-sheet__name { font-weight: 800; }
+.report-collage-toggle { position: relative; display: flex; align-items: center; gap: 7px; margin-top: 12px; font-size: 11px; font-weight: 500; line-height: 1.4; cursor: pointer; }
+.report-collage-toggle input { position: absolute; left: 0; top: 0; width: 34px; height: 22px; margin: 0; opacity: 0; cursor: pointer; }
+.report-collage-toggle__track { display: block; width: 34px; height: 22px; flex: none; padding: 3px; border-radius: 11px; background: #838391; pointer-events: none; }
+.report-collage-toggle__track::after { content: ''; display: block; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform .15s; }
+.report-collage-toggle input:checked + .report-collage-toggle__track { background: #237648; }
+.report-collage-toggle input:checked + .report-collage-toggle__track::after { transform: translateX(12px); }
+.report-collage-toggle input:focus-visible + .report-collage-toggle__track { outline: 3px solid var(--gold-500); outline-offset: 3px; }
+.report-collage-toggle input:disabled ~ span { opacity: .5; }
 .report-sheet__date { white-space: nowrap; }
 .report-sheet__photos { display: flex; flex-wrap: wrap; gap: 6px; }
 .report-sheet__photos a { display: block; width: 62px; height: 54px; overflow: hidden; border-radius: 6px; background: #eeeefa; }

@@ -30,6 +30,8 @@ In **Daily Reports** (or **My Reports**), select a date and optionally an employ
 
 Collage sources follow the same admin, sub-admin, and employee permissions as reports. They are fetched separately without the report table's 1,000-row cap. Images are composed in the browser; no generated collage is uploaded or stored on the server.
 
+Each employee's name cell has an **Include in collage** switch, on by default. Switch it off to exclude that employee's photo and attendance from the generated collages. Multiple rows for the same employee share one selection. Changing a switch clears generated previews and download links; create the collages again to apply the selection. Selections remain while filtering employees and reset when selecting a date. These choices apply to the current page session and do not change saved reports.
+
 ## API and checks
 
 The API prefix is `/api/v1`. Auth uses an HttpOnly session cookie. The active routes are `/auth`, `/report-team`, `/daily-reports`, `/uploads/report-photo`, `/admin/database`, and `/health`. The old ticket and general data-file endpoints are removed. Existing MongoDB records are left intact; this code does not delete stored records. On startup, legacy `LAB_ASSISTANT` accounts are reclassified as `EMPLOYEE`. Legacy read-only `ADMIN` accounts cannot sign in to this reporting portal.

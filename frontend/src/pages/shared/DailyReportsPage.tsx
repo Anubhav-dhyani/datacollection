@@ -48,6 +48,7 @@ export default function DailyReportsPage({ mode = 'all' }: { mode?: 'all' | 'sub
   const showList = !employee || mode === 'mine';
   const [reports, setReports] = useState<Report[]>([]), [summary, setSummary] = useState<Summary | null>(null);
   const [date, setDate] = useState(today), [employeeId, setEmployeeId] = useState('');
+  const [excludedFromCollage, setExcludedFromCollage] = useState<Set<string>>(() => new Set());
   const [eventDetail, setEventDetail] = useState(''), [city, setCity] = useState('');
   const [studentsAttended, setStudentsAttended] = useState(''), [studentsAttendedNA, setStudentsAttendedNA] = useState(false);
   const [dataCollected, setDataCollected] = useState(''), [dataCollectedNA, setDataCollectedNA] = useState(false);
@@ -156,17 +157,22 @@ export default function DailyReportsPage({ mode = 'all' }: { mode?: 'all' | 'sub
       <div className="report-list-head">
         <div><span className="report-sheet__eyebrow">Daily report sheet</span><h3>{date ? `Reports for ${date}` : 'All reports'}</h3><p>{reports.length} {reports.length === 1 ? 'report' : 'reports'} in this view</p></div>
         <div className="report-filters">
-          <label>Date<input className="input" type="date" value={date} onChange={e => setDate(e.target.value)} /></label>
-          <button type="button" className="btn btn-ghost" onClick={() => setDate('')}>All dates</button>
+          <label>Date<input className="input" type="date" value={date} onChange={e => { setDate(e.target.value); setExcludedFromCollage(new Set()); }} /></label>
+          <button type="button" className="btn btn-ghost" onClick={() => { setDate(''); setExcludedFromCollage(new Set()); }}>All dates</button>
           {!employee && <label>Employee<select className="select" value={employeeId} onChange={e => setEmployeeId(e.target.value)}><option value="">All employees</option>{summary?.employees.map(person => <option key={person.id} value={person.id}>{person.name} · {person.employeeId}</option>)}</select></label>}
         </div>
       </div>
-      <ReportCollages key={`${date}-${employeeId}`} date={date} employeeId={employeeId} />
+      <ReportCollages key={JSON.stringify([date, employeeId, [...excludedFromCollage].sort()])} date={date} employeeId={employeeId} excludedEmployeeIds={excludedFromCollage} />
       {!reports.length ? <p className="manage-note">No reports found for this selection.</p> : <div className="report-sheet__scroll"><table className="report-sheet__table">
         <thead><tr><th scope="col">Date</th><th scope="col">Name</th><th scope="col">Event Detail</th><th scope="col">City</th><th scope="col">Students Attended</th><th scope="col">Data Collected</th><th scope="col">Event Remarks</th><th scope="col">Additional Remarks</th><th scope="col">Event Pictures</th></tr></thead>
         <tbody>{reports.map(report => <tr key={report.id}>
           <td className="report-sheet__date">{report.date}</td>
-          <td className="report-sheet__name">{report.employeeName}</td>
+          <td className="report-sheet__name">{report.employeeName}<label className="report-collage-toggle" title={date ? 'Include this employee in the collage' : 'Select a date to choose employees for a collage'}>
+            <input type="checkbox" role="switch" aria-label={`Include ${report.employeeName} in collage`} checked={!excludedFromCollage.has(report.employeeId)} disabled={!date} onChange={event => {
+              const included = event.target.checked;
+              setExcludedFromCollage(current => { const next = new Set(current); if (included) next.delete(report.employeeId); else next.add(report.employeeId); return next; });
+            }} /><span aria-hidden="true" className="report-collage-toggle__track" /><span>{excludedFromCollage.has(report.employeeId) ? 'Excluded from collage' : 'Include in collage'}</span>
+          </label></td>
           <td>{report.eventDetail}</td>
           <td>{report.city}</td>
           <td>{displayCount(report.studentsAttended)}</td>
