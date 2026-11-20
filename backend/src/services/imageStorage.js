@@ -42,8 +42,8 @@ async function getImageStream(key) {
 }
 
 async function deleteImage(key) {
-  try { await s3().send(new DeleteObjectCommand({ Bucket: config.s3.bucket, Key: key })); }
-  catch (cause) { console.error('S3 image cleanup failed:', cause); }
+  try { await s3().send(new DeleteObjectCommand({ Bucket: config.s3.bucket, Key: key })); return true; }
+  catch (cause) { console.error('S3 image cleanup failed:', cause); return false; }
 }
 
 module.exports = { putImage, getImageStream, deleteImage, setImageState };

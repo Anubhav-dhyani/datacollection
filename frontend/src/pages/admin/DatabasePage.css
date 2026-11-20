@@ -1,4 +1,11 @@
 .database-page { max-width: 1500px; }
+.database-page .page-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.database-menu { position: relative; flex: none; }
+.database-menu__trigger { display: grid; place-items: center; width: 42px; height: 42px; border: 1px solid var(--line-strong); border-radius: 11px; color: var(--navy-900); background: #fff; cursor: pointer; }
+.database-menu__trigger:hover, .database-menu__trigger[aria-expanded="true"] { background: var(--gold-100); }
+.database-menu__list { position: absolute; z-index: 5; top: calc(100% + 8px); right: 0; min-width: 205px; padding: 6px; border: 1px solid var(--line-strong); border-radius: 12px; background: #fff; box-shadow: var(--shadow-sm); }
+.database-menu__list button { display: flex; align-items: center; gap: 9px; width: 100%; padding: 11px; border: 0; border-radius: 8px; color: #a1261e; background: transparent; font: inherit; font-size: 13px; font-weight: 700; text-align: left; cursor: pointer; }
+.database-menu__list button:hover { background: #fff0ee; }
 .database-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
 .database-stats > div { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 8px 12px; padding: 18px; border: 1px solid var(--line); border-radius: 16px; background: #fff; box-shadow: var(--shadow-sm); color: var(--navy-700); }
 .database-stats span { font-size: 12px; font-weight: 700; color: var(--ink-500); }
@@ -36,5 +43,8 @@
 .database-form > p { color: var(--ink-700); font-size: 13px; line-height: 1.55; }
 .database-form label { display: grid; gap: 7px; color: var(--ink-700); font-size: 12px; font-weight: 700; }
 .database-modal__actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 8px; }
+.database-delete-count { padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: #f8f8fc; }
+.database-delete-button { color: #fff; background: #a1261e; }
+.database-delete-button:hover { background: #851e18; }
 @media (max-width: 850px) { .database-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 600px) { .database-toolbar { align-items: stretch; flex-direction: column; } .database-search { width: 100%; } .database-modal { padding: 20px; } }
