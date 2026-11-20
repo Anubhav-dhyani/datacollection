@@ -46,7 +46,7 @@ test('email login, reporting roles, photos, filters, and removed ticket routes',
     const imageStorage = require('../src/services/imageStorage');
     imageStorage.putImage = async (key, _mimeType, buffer) => { objects.set(key, { data: Buffer.from(buffer), state: 'pending' }); };
     imageStorage.getImageStream = async key => Readable.from([objects.get(key).data]);
-    imageStorage.deleteImage = async key => { objects.delete(key); };
+    imageStorage.deleteImage = async key => { objects.delete(key); return true; };
     imageStorage.setImageState = async (key, state) => { const object = objects.get(key); if (!object) throw new Error('Image missing'); object.state = state; };
     const photoMetadata = require('../src/services/photoMetadata');
     photoMetadata.inspect = async () => ({ captureDate: '2024-07-08 12:34:56+05:30', captureUtc: '2024-07-08T07:04:56.000Z', timezoneStatus: 'embedded', captureSource: 'EXIF DateTimeOriginal', status: 'capture_present', indicators: [], cameraMake: 'Example', cameraModel: 'Camera', software: null, uploadedAt: new Date(), sha256: 'test-digest' });
@@ -254,6 +254,32 @@ test('email login, reporting roles, photos, filters, and removed ticket routes',
     const legacyCsv = await admin.post(`${root}/report-team/import.csv`).set('Content-Type', 'text/csv').send('name,email,sub_admin_email,initial_password\nLegacy,legacy@example.com,lead@example.com,LegacyPass123\n');
     assert.equal(legacyCsv.body.created, 1);
     assert.equal((await manager.post(`${root}/report-team/import.csv`).set('Content-Type', 'text/csv').send('role,name,email,sub_admin_emails,initial_password\nSUB_ADMIN,No,access@example.com,,NoAccess123\n')).status, 400);
+    const retainedReport = await DailyReport.create({ id: require('node:crypto').randomUUID(), date: '2000-01-01', employeeId: employeeUser.body.id,
+      employeeName: 'Field Employee', subAdminId: managerUser.body.id, eventDetail: 'Earlier event', city: 'Dehradun', photos: [] });
+    const datePath = `${root}/admin/database/reports/by-date`;
+    assert.equal((await manager.get(`${datePath}?date=${report.body.date}`)).status, 403);
+    assert.equal((await employee.delete(datePath).send({ date: report.body.date, confirmDate: report.body.date, expectedCount: 1, snapshot: 'a'.repeat(64) })).status, 403);
+    assert.equal((await admin.get(`${datePath}?date=2026-02-31`)).status, 400);
+    const preview = await admin.get(`${datePath}?date=${report.body.date}`);
+    assert.equal(preview.status, 200);
+    assert.equal(preview.body.reportCount, await DailyReport.countDocuments({ date: report.body.date }));
+    assert.equal(preview.body.photoCount, 5);
+    assert.match(preview.body.snapshot, /^[a-f0-9]{64}$/);
+    assert.equal((await admin.delete(datePath).send({ date: report.body.date, expectedCount: preview.body.reportCount })).status, 400);
+    assert.equal((await admin.delete(datePath).send({ date: report.body.date, confirmDate: report.body.date, expectedCount: preview.body.reportCount + 1, snapshot: preview.body.snapshot })).status, 409);
+    assert.equal((await admin.delete(datePath).send({ date: report.body.date, confirmDate: report.body.date, expectedCount: preview.body.reportCount, snapshot: 'a'.repeat(64) })).status, 409);
+    assert.equal(await DailyReport.countDocuments({ date: report.body.date }), preview.body.reportCount);
+    const deleted = await admin.delete(datePath).send({ date: report.body.date, confirmDate: report.body.date, expectedCount: preview.body.reportCount, snapshot: preview.body.snapshot });
+    assert.equal(deleted.status, 200, JSON.stringify(deleted.body));
+    assert.equal(deleted.body.deletedReports, preview.body.reportCount);
+    assert.equal(deleted.body.deletedPhotos, preview.body.photoCount);
+    assert.equal(deleted.body.failedPhotoDeletes, 0);
+    assert.equal(await DailyReport.countDocuments({ date: report.body.date }), 0);
+    assert.ok(await DailyReport.exists({ id: retainedReport.id }));
+    assert.equal(await Attachment.countDocuments({ reportId: { $in: [report.body.id, sharedReport.body.id] } }), 0);
+    assert.equal(objects.has(stored.storageKey), false);
+    assert.equal((await admin.get(report.body.photos[0].url)).status, 404);
+    assert.equal((await admin.get(`${root}/admin/database/accounts`)).body.length > 0, true);
   } finally {
     if (mongoose.connection.readyState) await mongoose.disconnect();
     if (processMongo && processMongo.exitCode === null) { processMongo.kill(); await new Promise(resolve => processMongo.once('exit', resolve)); }

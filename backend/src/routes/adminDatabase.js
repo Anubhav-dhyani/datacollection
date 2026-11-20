@@ -1,8 +1,10 @@
 const express = require('express');
+const crypto = require('node:crypto');
 const argon2 = require('argon2');
-const { User, Session } = require('../models');
+const { User, Session, DailyReport, Attachment } = require('../models');
 const { error, text, plain, audit, wrap } = require('../services/common');
 const { assignedTo, validateAssignments } = require('../services/assignments');
+const imageStorage = require('../services/imageStorage');
 
 const router = express.Router();
 router.use((req, _res, next) => req.user.role === 'MAIN_ADMIN' ? next() : next(Object.assign(new Error('Admin access required.'), { status: 403 })));
@@ -18,6 +20,44 @@ function validEmployeeId(value) {
   if (!/^[A-Z0-9/_-]{2,30}$/.test(employeeId)) error(400, 'Invalid employee ID.');
   return employeeId;
 }
+
+function validReportDate(value) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) error(400, 'Choose a valid report date.');
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value) error(400, 'Choose a valid report date.');
+  return value;
+}
+
+function reportSnapshot(reports) {
+  return crypto.createHash('sha256').update(reports.map(report => report.id).sort().join('\n')).digest('hex');
+}
+
+router.get('/reports/by-date', wrap(async (req, res) => {
+  const date = validReportDate(req.query.date);
+  const reports = await DailyReport.find({ date }).select('id photos.attachmentId').lean();
+  res.json({ date, reportCount: reports.length, photoCount: reports.reduce((count, report) => count + (report.photos?.length || 0), 0), snapshot: reportSnapshot(reports) });
+}));
+
+router.delete('/reports/by-date', wrap(async (req, res) => {
+  const date = validReportDate(req.body.date);
+  if (req.body.confirmDate !== date || !Number.isSafeInteger(req.body.expectedCount) || req.body.expectedCount < 1 || !/^[a-f0-9]{64}$/.test(req.body.snapshot || '')) error(400, 'Confirm the date and report count before deleting.');
+  const reports = await DailyReport.find({ date }).select('id photos.attachmentId').lean();
+  if (reports.length !== req.body.expectedCount || reportSnapshot(reports) !== req.body.snapshot) error(409, 'The reports changed. Review the selected date again before deleting.');
+  const reportIds = reports.map(report => report.id);
+  const photoIds = [...new Set(reports.flatMap(report => (report.photos || []).map(photo => photo.attachmentId)))];
+  const attachments = await Attachment.find({ $or: [{ reportId: { $in: reportIds } }, { id: { $in: photoIds } }] }).select('id storageKey').lean();
+  const removed = await DailyReport.deleteMany({ date, id: { $in: reportIds } });
+  await Attachment.deleteMany({ id: { $in: attachments.map(attachment => attachment.id) } });
+  const keys = [...new Set(attachments.map(attachment => attachment.storageKey).filter(Boolean))];
+  const failedKeys = [];
+  for (let offset = 0; offset < keys.length; offset += 8) {
+    const results = await Promise.all(keys.slice(offset, offset + 8).map(async key => ({ key, deleted: await imageStorage.deleteImage(key) })));
+    failedKeys.push(...results.filter(result => !result.deleted).map(result => result.key));
+  }
+  await audit(req.user.id, 'DELETE_DAILY_REPORTS_BY_DATE', 'DailyReport', date,
+    { reportCount: removed.deletedCount, attachmentCount: attachments.length, failedPhotoKeys: failedKeys });
+  res.json({ date, deletedReports: removed.deletedCount, deletedPhotos: attachments.length - failedKeys.length, failedPhotoDeletes: failedKeys.length });
+}));
 
 router.get('/accounts', wrap(async (_req, res) => {
   const people = await User.find({ role: { $in: ['MAIN_ADMIN', 'SUB_ADMIN', 'EMPLOYEE'] } }).sort({ role: 1, name: 1 }).lean();
