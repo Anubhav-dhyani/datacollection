@@ -65,6 +65,22 @@ router.get('/export.csv', wrap(async (req, res) => {
 router.get('/', wrap(async (req, res) => {
   res.json((await DailyReport.find(scope(req)).sort({ date: -1, createdAt: -1 }).limit(1000).lean()).map(output));
 }));
+// Use the same access scope as the report list, without its 1,000-report display cap.
+router.get('/collage', wrap(async (req, res) => {
+  if (!req.query.date) error(400, 'Select a date for the collage.');
+  const reports = await DailyReport.find(scope(req)).sort({ createdAt: -1, id: 1 })
+    .select('id employeeId employeeName city studentsAttended studentsAttendedNA photos').lean();
+  const employees = new Map();
+  for (const report of reports) {
+    if (employees.has(report.employeeId)) continue;
+    employees.set(report.employeeId, {
+      employeeId: report.employeeId, employeeName: report.employeeName, city: report.city,
+      studentsAttended: report.studentsAttendedNA ? 'NA' : report.studentsAttended ?? null,
+      photo: report.photos?.[0] ? { url: `${config.prefix}/uploads/${report.photos[0].attachmentId}` } : null,
+    });
+  }
+  res.json([...employees.values()].sort((a, b) => a.employeeName.localeCompare(b.employeeName) || a.employeeId.localeCompare(b.employeeId)));
+}));
 router.get('/:id', wrap(async (req, res) => {
   const report = await DailyReport.findOne({ id: req.params.id }).lean();
   if (!report || !visible(req.user, report)) error(404, 'Report not found.');

@@ -5,7 +5,7 @@ const imageStorage = require('../services/imageStorage');
 const photoMetadata = require('../services/photoMetadata');
 const config = require('../config');
 const router = express.Router();
-const rawImage = express.raw({ type: ['image/jpeg', 'image/png', 'image/webp'], limit: '5mb' });
+const rawImage = express.raw({ type: ['image/jpeg', 'image/png', 'image/webp'], limit: '15mb' });
 
 async function store(ownerId, mimeType, buffer, metadata) {
   const attachmentId = id();
@@ -25,7 +25,7 @@ router.post('/report-photo', rawImage, wrap(async (req, res) => {
   if (req.user.role !== 'EMPLOYEE') error(403, 'Only employees can upload report photos.');
   const mimeType = req.get('content-type');
   const buffer = req.body;
-  if (!['image/jpeg', 'image/png', 'image/webp'].includes(mimeType) || !Buffer.isBuffer(buffer) || !buffer.length || buffer.length > 5 * 1024 * 1024) error(400, 'Use a JPG, PNG or WebP image up to 5 MB.');
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(mimeType) || !Buffer.isBuffer(buffer) || !buffer.length || buffer.length > 15 * 1024 * 1024) error(400, 'Use a JPG, PNG or WebP image up to 15 MB.');
   const metadata = await photoMetadata.inspect(buffer, mimeType);
   res.status(201).json({ attachmentId: await store(req.user.id, mimeType, buffer, metadata), metadata });
 }));

@@ -89,6 +89,14 @@
 .report-sheet__table th:nth-child(7), .report-sheet__table th:nth-child(8) { width: 160px; }
 .report-sheet__table th:nth-child(9) { width: 210px; }
 .report-sheet__name { font-weight: 800; }
+.report-collage-toggle { position: relative; display: flex; align-items: center; gap: 7px; margin-top: 12px; font-size: 11px; font-weight: 500; line-height: 1.4; cursor: pointer; }
+.report-collage-toggle input { position: absolute; left: 0; top: 0; width: 34px; height: 22px; margin: 0; opacity: 0; cursor: pointer; }
+.report-collage-toggle__track { display: block; width: 34px; height: 22px; flex: none; padding: 3px; border-radius: 11px; background: #838391; pointer-events: none; }
+.report-collage-toggle__track::after { content: ''; display: block; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform .15s; }
+.report-collage-toggle input:checked + .report-collage-toggle__track { background: #237648; }
+.report-collage-toggle input:checked + .report-collage-toggle__track::after { transform: translateX(12px); }
+.report-collage-toggle input:focus-visible + .report-collage-toggle__track { outline: 3px solid var(--gold-500); outline-offset: 3px; }
+.report-collage-toggle input:disabled ~ span { opacity: .5; }
 .report-sheet__date { white-space: nowrap; }
 .report-sheet__photos { display: flex; flex-wrap: wrap; gap: 6px; }
 .my-report-cards { display: grid; gap: 16px; }
@@ -119,4 +127,11 @@
 .photo-inspection__details .is-warning { color: #a33b16; }
 .report-actions { align-items: center; }
 .report-actions .select { min-width: 150px; }
+.report-collages { display: grid; gap: 14px; padding: 22px 0; margin-bottom: 20px; border-top: 1px solid #d9d9e9; border-bottom: 1px solid #d9d9e9; }
+.report-collages .report-list-head { margin-bottom: 0; }
+.report-collages .report-list-head p { max-width: 650px; margin-top: 5px; }
+.report-collages__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr)); gap: 20px; }
+.report-collages__grid figure { min-width: 0; margin: 0; }
+.report-collages__grid img { display: block; width: 100%; height: auto; border-radius: 8px; }
+.report-collages__grid figcaption { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-top: 10px; font-size: 13px; }
 @media (max-width: 650px) { .report-filters { width: 100%; } }

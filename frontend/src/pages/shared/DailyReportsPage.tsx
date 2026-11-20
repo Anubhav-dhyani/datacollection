@@ -4,6 +4,7 @@ import { CalendarDays, Camera, Check, FileText, ImagePlus, UserRound, X } from '
 import { api } from '../../api';
 import { Link } from 'react-router-dom';
 import { useCurrentUser } from '../../state/session';
+import ReportCollages from '../../components/ReportCollages';
 import '../admin/Management.css';
 import './DailyReportsPage.css';
 
@@ -75,6 +76,7 @@ export default function DailyReportsPage({ mode = 'all' }: { mode?: 'all' | 'sub
   const showList = !employee || mode === 'mine';
   const [reports, setReports] = useState<Report[]>([]), [summary, setSummary] = useState<Summary | null>(null);
   const [date, setDate] = useState(() => employee && mode === 'mine' ? '' : today()), [employeeId, setEmployeeId] = useState('');
+  const [excludedFromCollage, setExcludedFromCollage] = useState<Set<string>>(() => new Set());
   const [eventDetail, setEventDetail] = useState(''), [city, setCity] = useState('');
   const [studentsAttended, setStudentsAttended] = useState(''), [studentsAttendedNA, setStudentsAttendedNA] = useState(false);
   const [dataCollected, setDataCollected] = useState(''), [dataCollectedNA, setDataCollectedNA] = useState(false);
@@ -95,7 +97,7 @@ export default function DailyReportsPage({ mode = 'all' }: { mode?: 'all' | 'sub
   function addPhotos(incoming: File[]) {
     const merged = [...files];
     for (const file of incoming) {
-      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || !file.size || file.size > 5 * 1024 * 1024) { setError(`${file.name} must be a JPG, PNG or WebP under 5 MB.`); return; }
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || !file.size || file.size > 15 * 1024 * 1024) { setError(`${file.name} must be a JPG, PNG or WebP up to 15 MB.`); return; }
       if (!merged.some(item => item.name === file.name && item.size === file.size && item.lastModified === file.lastModified)) merged.push(file);
     }
     if (merged.length > 8) { setError('Add at most 8 event pictures.'); return; }
@@ -114,7 +116,7 @@ export default function DailyReportsPage({ mode = 'all' }: { mode?: 'all' | 'sub
       if (!files.length || files.length > 8) throw new Error('Select 1 to 8 photos.');
       const photos = [];
       for (const file of files) {
-        if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024) throw new Error('Use JPG, PNG or WebP photos up to 5 MB each.');
+        if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 15 * 1024 * 1024) throw new Error('Use JPG, PNG or WebP photos up to 15 MB each.');
         const { attachmentId } = await api<{ attachmentId: string }>('/uploads/report-photo', { method: 'POST', body: file });
         photos.push({ attachmentId });
       }
@@ -169,7 +171,7 @@ export default function DailyReportsPage({ mode = 'all' }: { mode?: 'all' | 'sub
         <div className="report-section">
           <div className="report-section__heading"><span className="report-section__number">{needsRemarks ? '04' : '03'}</span><div><h4>Event pictures</h4><p>Add 1–8 pictures to support your report.</p></div></div>
           <div className={`report-photo-dropzone ${photoDragging ? 'is-dragging' : ''}`} onDragOver={e => { e.preventDefault(); setPhotoDragging(true); }} onDragLeave={() => setPhotoDragging(false)} onDrop={dropFiles}>
-            <div className="report-photo-dropzone__icon"><ImagePlus size={23} /></div><div><strong>Drop your pictures here</strong><span>JPG, PNG, or WebP · 5 MB each</span></div><button type="button" className="btn btn-ghost" onClick={() => photoInputRef.current?.click()}><Camera size={16} /> Add pictures</button>
+            <div className="report-photo-dropzone__icon"><ImagePlus size={23} /></div><div><strong>Drop your pictures here</strong><span>JPG, PNG, or WebP · 15 MB each</span></div><button type="button" className="btn btn-ghost" onClick={() => photoInputRef.current?.click()}><Camera size={16} /> Add pictures</button>
             <input ref={photoInputRef} className="sr-only" tabIndex={-1} type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={e => { addPhotos(Array.from(e.target.files || [])); e.target.value = ''; }} />
           </div>
           {files.length > 0 && <div className="report-photo-preview">{files.map((file, index) => <SelectedPhoto key={`${file.name}-${file.lastModified}-${index}`} file={file} onRemove={() => setFiles(current => current.filter((_, item) => item !== index))} />)}</div>}
@@ -183,11 +185,12 @@ export default function DailyReportsPage({ mode = 'all' }: { mode?: 'all' | 'sub
       <div className="report-list-head">
         <div><span className="report-sheet__eyebrow">Daily report sheet</span><h3>{date ? `Reports for ${date}` : 'All reports'}</h3><p>{reports.length} {reports.length === 1 ? 'report' : 'reports'} in this view</p></div>
         <div className="report-filters">
-          <label>Date<input className="input" type="date" value={date} onChange={e => setDate(e.target.value)} /></label>
-          <button type="button" className="btn btn-ghost" onClick={() => setDate('')}>All dates</button>
+          <label>Date<input className="input" type="date" value={date} onChange={e => { setDate(e.target.value); setExcludedFromCollage(new Set()); }} /></label>
+          <button type="button" className="btn btn-ghost" onClick={() => { setDate(''); setExcludedFromCollage(new Set()); }}>All dates</button>
           {!employee && <label>Employee<select className="select" value={employeeId} onChange={e => setEmployeeId(e.target.value)}><option value="">All employees</option>{summary?.employees.map(person => <option key={person.id} value={person.id}>{person.name} · {person.employeeId}</option>)}</select></label>}
         </div>
       </div>
+      <ReportCollages key={JSON.stringify([date, employeeId, [...excludedFromCollage].sort()])} date={date} employeeId={employeeId} excludedEmployeeIds={excludedFromCollage} />
       {!reports.length ? <p className="manage-note">No reports found for this selection.</p> : employee ? <div className="my-report-cards">{reports.map(report => <article className="my-report-card" key={report.id}>
         <div className="my-report-card__head"><strong>{report.eventDetail}</strong><span>{report.date} · {report.city}</span></div>
         <div className="my-report-card__counts"><span>Students attended: <strong>{displayCount(report.studentsAttended)}</strong></span><span>Data collected: <strong>{displayCount(report.dataCollected)}</strong></span></div>
@@ -198,7 +201,12 @@ export default function DailyReportsPage({ mode = 'all' }: { mode?: 'all' | 'sub
         <thead><tr><th scope="col">Date</th><th scope="col">Name</th><th scope="col">Event Detail</th><th scope="col">City</th><th scope="col">Students Attended</th><th scope="col">Data Collected</th><th scope="col">Event Remarks</th><th scope="col">Additional Remarks</th><th scope="col">Event Pictures</th></tr></thead>
         <tbody>{reports.map(report => <tr key={report.id}>
           <td className="report-sheet__date">{report.date}</td>
-          <td className="report-sheet__name">{report.employeeName}</td>
+          <td className="report-sheet__name">{report.employeeName}<label className="report-collage-toggle" title={date ? 'Include this employee in the collage' : 'Select a date to choose employees for a collage'}>
+            <input type="checkbox" role="switch" aria-label={`Include ${report.employeeName} in collage`} checked={!excludedFromCollage.has(report.employeeId)} disabled={!date} onChange={event => {
+              const included = event.target.checked;
+              setExcludedFromCollage(current => { const next = new Set(current); if (included) next.delete(report.employeeId); else next.add(report.employeeId); return next; });
+            }} /><span aria-hidden="true" className="report-collage-toggle__track" /><span>{excludedFromCollage.has(report.employeeId) ? 'Excluded from collage' : 'Include in collage'}</span>
+          </label></td>
           <td>{report.eventDetail}</td>
           <td>{report.city}</td>
           <td>{displayCount(report.studentsAttended)}</td>
