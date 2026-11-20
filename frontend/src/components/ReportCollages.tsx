@@ -53,7 +53,7 @@ export default function ReportCollages({ date, employeeId, excludedEmployeeIds }
   }
 
   return <section className="report-collages" aria-label="Employee photo collages" aria-busy={busy}>
-    <div className="report-list-head"><div><h3>Employee photo collages</h3><p>One photo per employee, with city and attendance written on the photo. Up to 9 photos per collage; the last may have fewer.</p><p>Use the switches beside employee names below to include or exclude them. Everyone is included by default. Changing a switch clears previous collages.</p><p>The first photo from each included employee’s latest report on the selected date is used. Photos are cropped to fill each tile.</p></div>
+    <div className="report-list-head"><h3>Employee photo collages</h3>
       <button type="button" className="btn btn-primary" disabled={!date || busy} onClick={() => void generate()}>{busy ? 'Creating collages…' : collages.length ? 'Regenerate collages' : 'Create collages'}</button>
     </div>
     {!date && <p className="manage-note">Select a date above to create collages.</p>}
