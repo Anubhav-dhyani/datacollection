@@ -32,21 +32,26 @@ function reportSnapshot(reports) {
   return crypto.createHash('sha256').update(reports.map(report => report.id).sort().join('\n')).digest('hex');
 }
 
-router.get('/reports/by-date', wrap(async (req, res) => {
+router.get('/accounts/:employeeId/reports/by-date', wrap(async (req, res) => {
+  const employee = await User.findOne({ id: req.params.employeeId, role: 'EMPLOYEE' }).select('id name').lean();
+  if (!employee) error(404, 'Employee not found.');
   const date = validReportDate(req.query.date);
-  const reports = await DailyReport.find({ date }).select('id photos.attachmentId').lean();
-  res.json({ date, reportCount: reports.length, photoCount: reports.reduce((count, report) => count + (report.photos?.length || 0), 0), snapshot: reportSnapshot(reports) });
+  const reports = await DailyReport.find({ date, employeeId: employee.id }).select('id photos.attachmentId').lean();
+  res.json({ date, employeeId: employee.id, employeeName: employee.name, reportCount: reports.length,
+    photoCount: reports.reduce((count, report) => count + (report.photos?.length || 0), 0), snapshot: reportSnapshot(reports) });
 }));
 
-router.delete('/reports/by-date', wrap(async (req, res) => {
+router.delete('/accounts/:employeeId/reports/by-date', wrap(async (req, res) => {
+  const employee = await User.findOne({ id: req.params.employeeId, role: 'EMPLOYEE' }).select('id name').lean();
+  if (!employee) error(404, 'Employee not found.');
   const date = validReportDate(req.body.date);
   if (req.body.confirmDate !== date || !Number.isSafeInteger(req.body.expectedCount) || req.body.expectedCount < 1 || !/^[a-f0-9]{64}$/.test(req.body.snapshot || '')) error(400, 'Confirm the date and report count before deleting.');
-  const reports = await DailyReport.find({ date }).select('id photos.attachmentId').lean();
+  const reports = await DailyReport.find({ date, employeeId: employee.id }).select('id photos.attachmentId').lean();
   if (reports.length !== req.body.expectedCount || reportSnapshot(reports) !== req.body.snapshot) error(409, 'The reports changed. Review the selected date again before deleting.');
   const reportIds = reports.map(report => report.id);
   const photoIds = [...new Set(reports.flatMap(report => (report.photos || []).map(photo => photo.attachmentId)))];
   const attachments = await Attachment.find({ $or: [{ reportId: { $in: reportIds } }, { id: { $in: photoIds } }] }).select('id storageKey').lean();
-  const removed = await DailyReport.deleteMany({ date, id: { $in: reportIds } });
+  const removed = await DailyReport.deleteMany({ date, employeeId: employee.id, id: { $in: reportIds } });
   await Attachment.deleteMany({ id: { $in: attachments.map(attachment => attachment.id) } });
   const keys = [...new Set(attachments.map(attachment => attachment.storageKey).filter(Boolean))];
   const failedKeys = [];
@@ -54,9 +59,9 @@ router.delete('/reports/by-date', wrap(async (req, res) => {
     const results = await Promise.all(keys.slice(offset, offset + 8).map(async key => ({ key, deleted: await imageStorage.deleteImage(key) })));
     failedKeys.push(...results.filter(result => !result.deleted).map(result => result.key));
   }
-  await audit(req.user.id, 'DELETE_DAILY_REPORTS_BY_DATE', 'DailyReport', date,
-    { reportCount: removed.deletedCount, attachmentCount: attachments.length, failedPhotoKeys: failedKeys });
-  res.json({ date, deletedReports: removed.deletedCount, deletedPhotos: attachments.length - failedKeys.length, failedPhotoDeletes: failedKeys.length });
+  await audit(req.user.id, 'DELETE_EMPLOYEE_REPORTS_BY_DATE', 'DailyReport', employee.id,
+    { date, employeeName: employee.name, reportCount: removed.deletedCount, attachmentCount: attachments.length, failedPhotoKeys: failedKeys });
+  res.json({ date, employeeId: employee.id, deletedReports: removed.deletedCount, deletedPhotos: attachments.length - failedKeys.length, failedPhotoDeletes: failedKeys.length });
 }));
 
 router.get('/accounts', wrap(async (_req, res) => {

@@ -256,26 +256,31 @@ test('email login, reporting roles, photos, filters, and removed ticket routes',
     assert.equal((await manager.post(`${root}/report-team/import.csv`).set('Content-Type', 'text/csv').send('role,name,email,sub_admin_emails,initial_password\nSUB_ADMIN,No,access@example.com,,NoAccess123\n')).status, 400);
     const retainedReport = await DailyReport.create({ id: require('node:crypto').randomUUID(), date: '2000-01-01', employeeId: employeeUser.body.id,
       employeeName: 'Field Employee', subAdminId: managerUser.body.id, eventDetail: 'Earlier event', city: 'Dehradun', photos: [] });
-    const datePath = `${root}/admin/database/reports/by-date`;
+    const otherEmployeeReport = await DailyReport.create({ id: require('node:crypto').randomUUID(), date: report.body.date, employeeId: singleMulti.body.id,
+      employeeName: singleMulti.body.name, subAdminId: managerUser.body.id, eventDetail: 'Another employee event', city: 'Dehradun', photos: [] });
+    const datePath = `${root}/admin/database/accounts/${employeeUser.body.id}/reports/by-date`;
+    assert.equal((await admin.get(`${root}/admin/database/reports/by-date?date=${report.body.date}`)).status, 404);
     assert.equal((await manager.get(`${datePath}?date=${report.body.date}`)).status, 403);
     assert.equal((await employee.delete(datePath).send({ date: report.body.date, confirmDate: report.body.date, expectedCount: 1, snapshot: 'a'.repeat(64) })).status, 403);
     assert.equal((await admin.get(`${datePath}?date=2026-02-31`)).status, 400);
     const preview = await admin.get(`${datePath}?date=${report.body.date}`);
     assert.equal(preview.status, 200);
-    assert.equal(preview.body.reportCount, await DailyReport.countDocuments({ date: report.body.date }));
+    assert.equal(preview.body.employeeId, employeeUser.body.id);
+    assert.equal(preview.body.reportCount, await DailyReport.countDocuments({ date: report.body.date, employeeId: employeeUser.body.id }));
     assert.equal(preview.body.photoCount, 5);
     assert.match(preview.body.snapshot, /^[a-f0-9]{64}$/);
     assert.equal((await admin.delete(datePath).send({ date: report.body.date, expectedCount: preview.body.reportCount })).status, 400);
     assert.equal((await admin.delete(datePath).send({ date: report.body.date, confirmDate: report.body.date, expectedCount: preview.body.reportCount + 1, snapshot: preview.body.snapshot })).status, 409);
     assert.equal((await admin.delete(datePath).send({ date: report.body.date, confirmDate: report.body.date, expectedCount: preview.body.reportCount, snapshot: 'a'.repeat(64) })).status, 409);
-    assert.equal(await DailyReport.countDocuments({ date: report.body.date }), preview.body.reportCount);
+    assert.equal(await DailyReport.countDocuments({ date: report.body.date, employeeId: employeeUser.body.id }), preview.body.reportCount);
     const deleted = await admin.delete(datePath).send({ date: report.body.date, confirmDate: report.body.date, expectedCount: preview.body.reportCount, snapshot: preview.body.snapshot });
     assert.equal(deleted.status, 200, JSON.stringify(deleted.body));
     assert.equal(deleted.body.deletedReports, preview.body.reportCount);
     assert.equal(deleted.body.deletedPhotos, preview.body.photoCount);
     assert.equal(deleted.body.failedPhotoDeletes, 0);
-    assert.equal(await DailyReport.countDocuments({ date: report.body.date }), 0);
+    assert.equal(await DailyReport.countDocuments({ date: report.body.date, employeeId: employeeUser.body.id }), 0);
     assert.ok(await DailyReport.exists({ id: retainedReport.id }));
+    assert.ok(await DailyReport.exists({ id: otherEmployeeReport.id }));
     assert.equal(await Attachment.countDocuments({ reportId: { $in: [report.body.id, sharedReport.body.id] } }), 0);
     assert.equal(objects.has(stored.storageKey), false);
     assert.equal((await admin.get(report.body.photos[0].url)).status, 404);

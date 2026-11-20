@@ -1,9 +1,6 @@
 .database-page { max-width: 1500px; }
-.database-page .page-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-.database-menu { position: relative; flex: none; }
-.database-menu__trigger { display: grid; place-items: center; width: 42px; height: 42px; border: 1px solid var(--line-strong); border-radius: 11px; color: var(--navy-900); background: #fff; cursor: pointer; }
-.database-menu__trigger:hover, .database-menu__trigger[aria-expanded="true"] { background: var(--gold-100); }
-.database-menu__list { position: absolute; z-index: 5; top: calc(100% + 8px); right: 0; min-width: 205px; padding: 6px; border: 1px solid var(--line-strong); border-radius: 12px; background: #fff; box-shadow: var(--shadow-sm); }
+.database-menu__dismiss { position: fixed; z-index: 89; inset: 0; }
+.database-menu__list { position: fixed; z-index: 90; min-width: 205px; padding: 6px; border: 1px solid var(--line-strong); border-radius: 12px; background: #fff; box-shadow: var(--shadow-sm); }
 .database-menu__list button { display: flex; align-items: center; gap: 9px; width: 100%; padding: 11px; border: 0; border-radius: 8px; color: #a1261e; background: transparent; font: inherit; font-size: 13px; font-weight: 700; text-align: left; cursor: pointer; }
 .database-menu__list button:hover { background: #fff0ee; }
 .database-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
