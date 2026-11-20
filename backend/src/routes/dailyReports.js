@@ -41,7 +41,7 @@ function output(report) {
     eventRemarks,
     studentsAttended: report.studentsAttendedNA ? 'NA' : report.studentsAttended ?? null,
     dataCollected: report.dataCollectedNA ? 'NA' : report.dataCollected ?? null,
-    photos: (value.photos || []).map(photo => ({ attachmentId: photo.attachmentId, url: `${config.prefix}/uploads/${photo.attachmentId}` })),
+    photos: (value.photos || []).map(photo => ({ attachmentId: photo.attachmentId, url: `${config.prefix}/uploads/${photo.attachmentId}`, metadata: photo.metadata || null })),
   };
 }
 router.get('/summary', wrap(async (req, res) => {
@@ -89,8 +89,10 @@ router.post('/', wrap(async (req, res) => {
     ids.add(attachmentId);
     return { attachmentId };
   });
-  const attachments = await Attachment.find({ id: { $in: [...ids] }, ownerId: req.user.id, kind: 'REPORT', reportId: { $exists: false }, expiresAt: { $gt: new Date() } }).select('storageKey').lean();
+  const attachments = await Attachment.find({ id: { $in: [...ids] }, ownerId: req.user.id, kind: 'REPORT', reportId: { $exists: false }, expiresAt: { $gt: new Date() } }).select('id storageKey photoMetadata').lean();
   if (attachments.length !== photos.length) error(400, 'Upload photos again before submitting.');
+  const metadataById = new Map(attachments.map(attachment => [attachment.id, attachment.photoMetadata || null]));
+  for (const photo of photos) photo.metadata = metadataById.get(photo.attachmentId);
   const reportFields = { id: id(), date: today(), employeeId: req.user.id, employeeName: req.user.name, subAdminId: subAdminIds[0], subAdminIds,
     eventDetail: text(req.body.eventDetail, 'event detail', 3000), city: text(req.body.city, 'city', 120),
     studentsAttended: studentsAttended.value, studentsAttendedNA: studentsAttended.na,

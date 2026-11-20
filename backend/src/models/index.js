@@ -33,11 +33,12 @@ const attachmentSchema = new Schema({
   id: { type: String, required: true, unique: true }, mimeType: { type: String, required: true },
   data: Buffer, storageKey: String, sizeBytes: Number,
   ownerId: { type: String, required: true }, reportId: String, expiresAt: Date,
+  photoMetadata: Schema.Types.Mixed,
   kind: { type: String, enum: ['REPORT'], required: true },
 }, options('attachments'));
 attachmentSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
-const photoSchema = new Schema({ attachmentId: { type: String, required: true } }, { _id: false });
+const photoSchema = new Schema({ attachmentId: { type: String, required: true }, metadata: Schema.Types.Mixed }, { _id: false });
 const dailyReportSchema = new Schema({
   id: { type: String, required: true, unique: true }, date: { type: String, required: true, index: true },
   employeeId: { type: String, required: true, index: true }, employeeName: { type: String, required: true },

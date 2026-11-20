@@ -48,6 +48,8 @@ test('email login, reporting roles, photos, filters, and removed ticket routes',
     imageStorage.getImageStream = async key => Readable.from([objects.get(key).data]);
     imageStorage.deleteImage = async key => { objects.delete(key); };
     imageStorage.setImageState = async (key, state) => { const object = objects.get(key); if (!object) throw new Error('Image missing'); object.state = state; };
+    const photoMetadata = require('../src/services/photoMetadata');
+    photoMetadata.inspect = async () => ({ captureDate: '2024-07-08 12:34:56+05:30', captureUtc: '2024-07-08T07:04:56.000Z', timezoneStatus: 'embedded', captureSource: 'EXIF DateTimeOriginal', status: 'capture_present', indicators: [], cameraMake: 'Example', cameraModel: 'Camera', software: null, uploadedAt: new Date(), sha256: 'test-digest' });
     const { start } = require('../src/server');
     const app = await start();
     const root = '/api/v1';
@@ -93,9 +95,10 @@ test('email login, reporting roles, photos, filters, and removed ticket routes',
     const stored = await Attachment.findOne({ id: image.body.attachmentId }).lean();
     assert.equal(stored.data, undefined);
     assert.equal(stored.storageKey, `attachments/${image.body.attachmentId}`);
+    assert.equal(stored.photoMetadata.status, 'capture_present');
     assert.equal(objects.get(stored.storageKey).state, 'pending');
     assert.equal((await employee.post(`${root}/uploads/report-file`).set('Content-Type', 'application/octet-stream').send(Buffer.from('file'))).status, 404);
-    const baseReport = { eventDetail: 'Visited the event venue', city: 'Dehradun', photos: [{ attachmentId: image.body.attachmentId }] };
+    const baseReport = { eventDetail: 'Visited the event venue', city: 'Dehradun', photos: [{ attachmentId: image.body.attachmentId, metadata: { status: 'possible_edit', captureDate: '1900-01-01' } }] };
     assert.equal((await employee.post(`${root}/daily-reports`).send({ ...baseReport, studentsAttended: 10 })).status, 400);
     assert.equal((await employee.post(`${root}/daily-reports`).send({ ...baseReport, studentsAttended: '10', dataCollected: 5 })).status, 400);
     assert.equal((await employee.post(`${root}/daily-reports`).send({ ...baseReport, studentsAttended: -1, dataCollected: 5 })).status, 400);
@@ -113,7 +116,11 @@ test('email login, reporting roles, photos, filters, and removed ticket routes',
     assert.equal(objects.get(stored.storageKey).state, 'attached');
     assert.equal('data' in report.body, false);
     assert.equal('dataSections' in report.body, false);
-    assert.deepEqual(report.body.photos, [{ attachmentId: image.body.attachmentId, url: `${root}/uploads/${image.body.attachmentId}` }]);
+    assert.equal(report.body.photos[0].attachmentId, image.body.attachmentId);
+    assert.equal(report.body.photos[0].url, `${root}/uploads/${image.body.attachmentId}`);
+    assert.equal(report.body.photos[0].metadata.captureDate, '2024-07-08 12:34:56+05:30');
+    assert.equal(report.body.photos[0].metadata.status, 'capture_present');
+    assert.notEqual(report.body.photos[0].metadata.captureDate, '1900-01-01');
     assert.match(report.body.date, /^\d{4}-\d{2}-\d{2}$/);
     assert.equal((await employee.get(report.body.photos[0].url)).status, 200);
     assert.equal((await manager.get(report.body.photos[0].url)).status, 200);

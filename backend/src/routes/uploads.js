@@ -2,16 +2,17 @@ const express = require('express');
 const { Attachment, DailyReport } = require('../models');
 const { id, error, wrap } = require('../services/common');
 const imageStorage = require('../services/imageStorage');
+const photoMetadata = require('../services/photoMetadata');
 const config = require('../config');
 const router = express.Router();
 const rawImage = express.raw({ type: ['image/jpeg', 'image/png', 'image/webp'], limit: '5mb' });
 
-async function store(ownerId, mimeType, buffer) {
+async function store(ownerId, mimeType, buffer, metadata) {
   const attachmentId = id();
   const storageKey = `attachments/${attachmentId}`;
   await imageStorage.putImage(storageKey, mimeType, buffer);
   try {
-    await Attachment.create({ id: attachmentId, ownerId, kind: 'REPORT', mimeType, storageKey, sizeBytes: buffer.length,
+    await Attachment.create({ id: attachmentId, ownerId, kind: 'REPORT', mimeType, storageKey, sizeBytes: buffer.length, photoMetadata: metadata,
       expiresAt: new Date(Date.now() + 7 * 24 * 3600000) });
   } catch (cause) {
     await imageStorage.deleteImage(storageKey);
@@ -25,7 +26,8 @@ router.post('/report-photo', rawImage, wrap(async (req, res) => {
   const mimeType = req.get('content-type');
   const buffer = req.body;
   if (!['image/jpeg', 'image/png', 'image/webp'].includes(mimeType) || !Buffer.isBuffer(buffer) || !buffer.length || buffer.length > 5 * 1024 * 1024) error(400, 'Use a JPG, PNG or WebP image up to 5 MB.');
-  res.status(201).json({ attachmentId: await store(req.user.id, mimeType, buffer) });
+  const metadata = await photoMetadata.inspect(buffer, mimeType);
+  res.status(201).json({ attachmentId: await store(req.user.id, mimeType, buffer, metadata), metadata });
 }));
 
 router.get('/:id', wrap(async (req, res) => {

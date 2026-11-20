@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type DragEvent, type FormEvent } from 'react';
+import { createPortal } from 'react-dom';
 import { CalendarDays, Camera, Check, FileText, ImagePlus, UserRound, X } from 'lucide-react';
 import { api } from '../../api';
 import { Link } from 'react-router-dom';
@@ -6,7 +7,8 @@ import { useCurrentUser } from '../../state/session';
 import '../admin/Management.css';
 import './DailyReportsPage.css';
 
-type Photo = { attachmentId: string; url: string };
+type PhotoMetadata = { captureDate: string | null; captureUtc: string | null; timezoneStatus: string; captureSource: string | null; status: 'capture_present' | 'capture_missing' | 'possible_edit'; indicators: string[]; cameraMake: string | null; cameraModel: string | null; software: string | null; uploadedAt: string; sha256: string };
+type Photo = { attachmentId: string; url: string; metadata?: PhotoMetadata | null };
 type Report = { id: string; date: string; employeeId: string; employeeName: string; eventDetail: string; city: string; studentsAttended: number | 'NA' | null; dataCollected: number | 'NA' | null; eventRemarks: string; additionalRemarks: string; photos: Photo[] };
 type Summary = { date: string; employees: { id: string; name: string; employeeId: string; submitted: boolean }[] };
 function today() { const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date()).map(part => [part.type, part.value])); return `${parts.year}-${parts.month}-${parts.day}`; }
@@ -15,6 +17,28 @@ function parseCount(value: string, label: string) {
   const number = Number(value);
   if (!value.trim() || !Number.isSafeInteger(number) || number < 0) throw new Error(`${label} must be a non-negative whole number or N/A.`);
   return number;
+}
+
+function ReportPhoto({ photo, name, index }: { photo: Photo; name: string; index: number }) {
+  const [open, setOpen] = useState(false);
+  const metadata = photo.metadata;
+  const status = metadata?.status === 'possible_edit' ? 'Possible edit' : metadata?.status === 'capture_missing' ? 'Capture metadata missing; photo may have been shared or exported' : metadata ? 'Capture date available' : 'Not inspected';
+  return <><button type="button" className="report-sheet__photo" onClick={() => setOpen(true)} aria-label={`Inspect picture ${index + 1} for ${name}`}>
+    <img src={photo.url} alt={`Event picture ${index + 1} for ${name}`} loading="lazy" />
+    <span>{metadata?.status === 'possible_edit' ? 'Possible edit · ' : metadata?.status === 'capture_missing' ? 'No capture metadata · ' : ''}{metadata?.captureDate || 'Date unavailable'}</span>
+  </button>{open && createPortal(<div className="photo-inspection-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) setOpen(false); }}><section className="photo-inspection" role="dialog" aria-modal="true" aria-label={`Picture ${index + 1} inspection`}>
+    <div className="photo-inspection__head"><strong>Picture {index + 1} · {name}</strong><button type="button" onClick={() => setOpen(false)} aria-label="Close photo details"><X size={20} /></button></div>
+    <div className="photo-inspection__image"><img src={photo.url} alt={`Event picture ${index + 1} for ${name}`} /><span>{metadata?.captureDate ? `Captured: ${metadata.captureDate}` : 'Capture date unavailable'}</span></div>
+    <div className="photo-inspection__details"><strong className={metadata?.status === 'possible_edit' ? 'is-warning' : ''}>{status}</strong>
+      <p>Capture date: {metadata?.captureDate || 'Not available'}{metadata?.captureSource ? ` · ${metadata.captureSource}` : ''}</p>
+      {metadata?.captureDate && <p>Timezone: {metadata.timezoneStatus === 'embedded' ? 'Embedded offset available' : 'Unknown or invalid; no timezone assumed'}</p>}
+      <p>Uploaded: {metadata?.uploadedAt ? new Date(metadata.uploadedAt).toLocaleString() : 'Not recorded'}</p>
+      {(metadata?.cameraMake || metadata?.cameraModel) && <p>Camera: {[metadata.cameraMake, metadata.cameraModel].filter(Boolean).join(' ')}</p>}
+      {metadata?.indicators.map((indicator, item) => <p key={item}>{indicator}</p>)}
+      <small>File metadata can be changed or removed. This result cannot prove when a photo was taken, edited, or shared.</small>
+    </div>
+    <a href={photo.url} target="_blank" rel="noreferrer">Open original photo</a>
+  </section></div>, document.body)}</>;
 }
 
 function CountField({ label, value, onChange, na, onNAChange }: { label: string; value: string; onChange: (value: string) => void; na: boolean; onNAChange: (value: boolean) => void }) {
@@ -28,16 +52,20 @@ function CountField({ label, value, onChange, na, onNAChange }: { label: string;
 }
 
 function SelectedPhoto({ file, onRemove }: { file: File; onRemove: () => void }) {
-  const [preview, setPreview] = useState('');
+  const [preview, setPreview] = useState(''), [open, setOpen] = useState(false);
   useEffect(() => {
     const url = URL.createObjectURL(file);
     setPreview(url);
     return () => URL.revokeObjectURL(url);
   }, [file]);
   return <div className="report-photo-tile">
-    {preview && <img src={preview} alt={`Selected photo ${file.name}`} />}
+    {preview && <button type="button" className="report-photo-tile__preview" onClick={() => setOpen(true)} aria-label={`Enlarge ${file.name}`}><img src={preview} alt={`Selected photo ${file.name}`} /></button>}
     <span title={file.name}>{file.name}</span>
-    <button type="button" aria-label={`Remove ${file.name}`} onClick={onRemove}><X size={15} /></button>
+    <button type="button" className="report-photo-tile__remove" aria-label={`Remove ${file.name}`} onClick={onRemove}><X size={15} /></button>
+    {open && preview && createPortal(<div className="photo-inspection-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) setOpen(false); }}><section className="photo-inspection" role="dialog" aria-modal="true" aria-label={`Preview ${file.name}`}>
+      <div className="photo-inspection__head"><strong>{file.name}</strong><button type="button" onClick={() => setOpen(false)} aria-label="Close photo preview"><X size={20} /></button></div>
+      <div className="photo-inspection__image"><img src={preview} alt={`Large preview of ${file.name}`} /></div>
+    </section></div>, document.body)}
   </div>;
 }
 
@@ -46,7 +74,7 @@ export default function DailyReportsPage({ mode = 'all' }: { mode?: 'all' | 'sub
   const showForm = employee && mode === 'submit';
   const showList = !employee || mode === 'mine';
   const [reports, setReports] = useState<Report[]>([]), [summary, setSummary] = useState<Summary | null>(null);
-  const [date, setDate] = useState(today), [employeeId, setEmployeeId] = useState('');
+  const [date, setDate] = useState(() => employee && mode === 'mine' ? '' : today()), [employeeId, setEmployeeId] = useState('');
   const [eventDetail, setEventDetail] = useState(''), [city, setCity] = useState('');
   const [studentsAttended, setStudentsAttended] = useState(''), [studentsAttendedNA, setStudentsAttendedNA] = useState(false);
   const [dataCollected, setDataCollected] = useState(''), [dataCollectedNA, setDataCollectedNA] = useState(false);
@@ -160,7 +188,13 @@ export default function DailyReportsPage({ mode = 'all' }: { mode?: 'all' | 'sub
           {!employee && <label>Employee<select className="select" value={employeeId} onChange={e => setEmployeeId(e.target.value)}><option value="">All employees</option>{summary?.employees.map(person => <option key={person.id} value={person.id}>{person.name} · {person.employeeId}</option>)}</select></label>}
         </div>
       </div>
-      {!reports.length ? <p className="manage-note">No reports found for this selection.</p> : <div className="report-sheet__scroll"><table className="report-sheet__table">
+      {!reports.length ? <p className="manage-note">No reports found for this selection.</p> : employee ? <div className="my-report-cards">{reports.map(report => <article className="my-report-card" key={report.id}>
+        <div className="my-report-card__head"><strong>{report.eventDetail}</strong><span>{report.date} · {report.city}</span></div>
+        <div className="my-report-card__counts"><span>Students attended: <strong>{displayCount(report.studentsAttended)}</strong></span><span>Data collected: <strong>{displayCount(report.dataCollected)}</strong></span></div>
+        {report.eventRemarks && <p><strong>Event remarks:</strong> {report.eventRemarks}</p>}
+        {report.additionalRemarks && <p><strong>Additional remarks:</strong> {report.additionalRemarks}</p>}
+        <div className="my-report-card__pictures"><h4>Event pictures</h4><div className="report-sheet__photos">{report.photos.map((photo, index) => <ReportPhoto key={photo.attachmentId} photo={photo} name={report.employeeName} index={index} />)}</div></div>
+      </article>)}</div> : <div className="report-sheet__scroll"><table className="report-sheet__table">
         <thead><tr><th scope="col">Date</th><th scope="col">Name</th><th scope="col">Event Detail</th><th scope="col">City</th><th scope="col">Students Attended</th><th scope="col">Data Collected</th><th scope="col">Event Remarks</th><th scope="col">Additional Remarks</th><th scope="col">Event Pictures</th></tr></thead>
         <tbody>{reports.map(report => <tr key={report.id}>
           <td className="report-sheet__date">{report.date}</td>
@@ -171,7 +205,7 @@ export default function DailyReportsPage({ mode = 'all' }: { mode?: 'all' | 'sub
           <td>{displayCount(report.dataCollected)}</td>
           <td>{report.eventRemarks || '—'}</td>
           <td>{report.additionalRemarks || '—'}</td>
-          <td><div className="report-sheet__photos">{report.photos.map((photo, index) => <a key={photo.attachmentId} href={new URL(photo.url, window.location.origin).href} target="_blank" rel="noreferrer" aria-label={`Open picture ${index + 1} for ${report.employeeName}`} title="Open full picture"><img src={photo.url} alt={`Event picture ${index + 1} for ${report.employeeName}`} loading="lazy" /></a>)}</div></td>
+          <td><div className="report-sheet__photos">{report.photos.map((photo, index) => <ReportPhoto key={photo.attachmentId} photo={photo} name={report.employeeName} index={index} />)}</div></td>
         </tr>)}</tbody>
       </table></div>}
     </section>}</div>;
