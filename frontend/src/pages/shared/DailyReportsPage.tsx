@@ -190,7 +190,7 @@ export default function DailyReportsPage({ mode = 'all' }: { mode?: 'all' | 'sub
           {!employee && <label>Employee<select className="select" value={employeeId} onChange={e => setEmployeeId(e.target.value)}><option value="">All employees</option>{summary?.employees.map(person => <option key={person.id} value={person.id}>{person.name} · {person.employeeId}</option>)}</select></label>}
         </div>
       </div>
-      <ReportCollages key={JSON.stringify([date, employeeId, [...excludedFromCollage].sort()])} date={date} employeeId={employeeId} excludedEmployeeIds={excludedFromCollage} />
+      {!employee && <ReportCollages key={JSON.stringify([date, employeeId, [...excludedFromCollage].sort()])} date={date} employeeId={employeeId} excludedEmployeeIds={excludedFromCollage} />}
       {!reports.length ? <p className="manage-note">No reports found for this selection.</p> : employee ? <div className="my-report-cards">{reports.map(report => <article className="my-report-card" key={report.id}>
         <div className="my-report-card__head"><strong>{report.eventDetail}</strong><span>{report.date} · {report.city}</span></div>
         <div className="my-report-card__counts"><span>Students attended: <strong>{displayCount(report.studentsAttended)}</strong></span><span>Data collected: <strong>{displayCount(report.dataCollected)}</strong></span></div>
